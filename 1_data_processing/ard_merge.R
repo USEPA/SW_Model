@@ -33,8 +33,11 @@ ice <- read_feather("data/weekly_ice_tibble.feather")
 cloud <- read_feather("data/cloud_mask_tibble.feather") %>% rename(cloud_pres = masked)
 
 #Read in ARD surface temperature data, filter out NAs, and filter the starting point to match other datasets
-daily_water_temp <- read_feather("data/conus_daily_wtemp.feather") %>% #remove rows with no ARD water temp
-  filter(!is.na(temp_k)) %>% filter(date > "2016-04-30") 
+# daily_water_temp <- read_feather("data/conus_daily_wtemp.feather") %>% #remove rows with no ARD water temp
+#   filter(!is.na(temp_k)) %>% filter(date > "2016-04-30") 
+
+daily_water_temp <- read_feather("data/conus_daily_wtemp_noclouds.feather") %>% #remove rows with no ARD water temp
+  filter(!is.na(temp_k)) %>% filter(date > "2016-04-30") %>% mutate(COMID = as.numeric(COMID))
 
 #Merge together lakes with lakes_morpho
 lakes %>% 
@@ -63,4 +66,5 @@ training <-  daily_water_temp %>% left_join(lakes_data, by = "COMID") %>%
   rename(TEMPERATURE = temp_k) %>% #Make same variable name as in situ temperature
   mutate(TEMPERATURE = TEMPERATURE - 273.15) #Put temperature in C
 
-write_feather(training, 'data/ard_training.feather', compression = 'zstd', compression_level = 22)
+# write_csv(training, 'data/ard_training.csv')
+write_feather(training, 'data/ard_training_no_clouds.feather', compression = 'zstd', compression_level = 22)

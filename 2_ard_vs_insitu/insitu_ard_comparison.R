@@ -14,32 +14,52 @@ conus_lakes <- st_read("data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_la
 temp_comparison <- read_feather("data/ARD_insitu_data_dist_shore.feather") %>% filter(depth <= 2) %>% filter(dist_shore_m > 180)
 summary(temp_comparison)
 
-#Scatter plot of temp to temp comparison----
 ggplot(temp_comparison) +
   geom_point(aes(x=insitu_temp, y=ard_temp), color = 'gray50', fill = NA, size = 2, shape = 21, alpha = 0.8) +
   xlab('In situ Temperature (°C)') +
   ylab('ARD Pixel Temperature (°C)') +
-  coord_cartesian(xlim = c(-15,40), ylim = c(-15,40),expand = F,default = FALSE,clip = "on") +
+  coord_cartesian(xlim = c(-5,45), ylim = c(-5,45),expand = F,default = FALSE,clip = "on") +
+  theme_bw() +
+  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.5) -> pixel_comparison_dist
+
+
+temp_comparison_w_clouds <- read_feather("data/ard_insitu_matchup_metadata.feather") %>% filter(depth <= 2) %>%
+  mutate(ard_temp = 0.00341802*extracted_temp + 149.0 - 273.15,
+         raw_error = ard_temp - insitu_temp,
+         abs_error = abs(ard_temp - insitu_temp)) %>%
+  filter(ard_temp > 0)
+
+#Scatter plot of temp to temp comparison----
+ggplot(temp_comparison_w_clouds) +
+  geom_point(aes(x=insitu_temp, y=ard_temp), color = 'gray50', fill = NA, size = 2, shape = 21, alpha = 0.8) +
+  xlab('In situ Temperature (°C)') +
+  ylab('ARD Pixel Temperature (°C)') +
+  coord_cartesian(xlim = c(-5,45), ylim = c(-5,45),expand = F,default = FALSE,clip = "on") +
   theme_bw() +
   geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.5) -> pixel_comparison
 
 ggsave('atmos_figures/pixel_comparison.jpg', pixel_comparison, height = 4, width = 4, units = 'in', dpi = 600, bg = 'white')
 
-#Temperature error compared to clouds----
-temp_comparison_w_clouds <- read_feather("data/ard_insitu_matchup_metadata.feather") %>% filter(depth <= 2) %>%
-  select(date, depth, cloud_cover, cloud_shadow, snow_ice, fill_no_data, image_match, insitu_temp, lat, long) %>%
-  right_join(temp_comparison, by = c('date', 'depth', 'lat', 'long', 'insitu_temp')) %>% unique() %>%
-  mutate(raw_error = ard_temp - insitu_temp,
-         abs_error = abs(ard_temp - insitu_temp))
 
-
-#Cloud cover vs raw error
+#Cloud cover vs raw error ----
 ggplot(temp_comparison_w_clouds) +
   geom_point(aes(x=raw_error, y=cloud_cover), color = 'gray50', fill = NA, size = 2, shape = 21, alpha = 0.8) +
   xlab('Error (Tard - Tis) (°C)') +
   ylab('ARD Image Cloud Cover') +
   # coord_cartesian(xlim = c(-15,40), ylim = c(-15,40),expand = F,default = FALSE,clip = "on") +
   theme_bw()  -> cloud_error_comparison
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #Everything past this point is not necessary, but might come in handy later ----
