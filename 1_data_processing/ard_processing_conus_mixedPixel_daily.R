@@ -25,17 +25,27 @@ library(arrow)
 
 #Working directory location of all external data and contains a folder with QA and ST images
 wd <- '/work/HAB4CAST/data_processing/'
+#wd <- 'C:/Users/hferriby/OneDrive - Environmental Protection Agency (EPA)/Profile/Desktop/ARD_Test/downloads'
 setwd(wd)
-year <- 2016
+
+ard_filter_list <- read_feather('/./work/HAB4CAST/SW_model/data/landsat_ard_scenes_no_clouds.feather') %>%
+  mutate(tile_name_tiff = paste0(tile_name, '.tif'))
+
 #List all files in working directory
-allFiles <- list.files(path = 'data/conus_ard_data', full.names = FALSE)
+#allFiles <- list.files(path = 'data/conus_ard_data', full.names = FALSE)
+allFiles <- tibble(name = list.files(path = wd, full.names = FALSE))
+
+#Only want files corresponding to cloud free images
+ard_no_clouds <- allFiles %>% filter(name %in% ard_filter_list$tile_name_tiff)
+
+
 
 #Load in external data ---- 
 #Load Florida Lakes shapefile, ARD Tiles from USGS, and week number assignments (made by Natalie)
 #https://www.usgs.gov/media/files/landsat-collection-2-us-ard-tile-grid-shapefile-conus
-conus_lakes <- st_cast(st_read('data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp'), "MULTIPOLYGON")
-ard_tiles <- st_read('data/CONUS_C2_ARD_grid/conus_c2_ard_grid.shp') %>% st_transform(ard_tiles, crs = st_crs(conus_lakes))
-week_assignments <- read_csv('data/week_assignments.csv')
+conus_lakes <- st_cast(st_read('/./work/HAB4CAST/SW_model/data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp'), "MULTIPOLYGON")
+ard_tiles <- st_read('/./work/HAB4CAST/SW_model/data/CONUS_C2_ARD_grid/conus_c2_ard_grid.shp') %>% st_transform(ard_tiles, crs = st_crs(conus_lakes))
+week_assignments <- read_feather('/./work/HAB4CAST/SW_model/data/week_assignments.feather')
 
 #Create buffer to remove boundary pixels - 300 m pixel step in
 conus_lakes_300m_stepin <- st_buffer(conus_lakes, (-300))
@@ -75,16 +85,16 @@ clouds <- c(L7.clouds, L8.clouds)
 
 #Set up for while loop ----
 #Pull the image date from the image name
-pull_ard_date <- function(fn){
-  str_extract(fn,'[:digit:]{8}') %>% ymd() %>% return()
-}
+# pull_ard_date <- function(fn){
+#   str_extract(fn,'[:digit:]{8}') %>% ymd() %>% return()
+# }
 
 #Pull the first 35 characters from the image name for indexing
 regex_detect <- str_c('^[:graph:]{15}',year)
 
 #List all files for a given year
 shortName <- unique(str_sub(allFiles, 1, 35))
-shortName <- str_subset(shortName,regex_detect)
+# shortName <- str_subset(shortName,regex_detect)
 
 # Reproject vector to raster crs
 ST_crs <- crs(rast(str_c('data/conus_ard_data/',STfileNames[1])))
@@ -182,5 +192,5 @@ st_summary_table %>%
   distinct() -> mean_wtemp
 
 #Export final weekly mean temp ----
-write_feather(mean_wtemp, paste(wd, '/conus_daily_wtemp_16.feather', sep=''), compression = 'zstd', compression_level = 22) # Set save location
+write_feather(mean_wtemp, '/./work/HAB4CAST/SW_model/data/conus_daily_wtemp_noclouds.feather', compression = 'zstd', compression_level = 22) # Set save location
 proc.time() - ptm
