@@ -22,7 +22,9 @@ set.seed(42)
 lakes <- st_read("data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp") %>%
   mutate(COMID = as.numeric(COMID))
 
-training <- read_feather('data/ard_training.feather')
+#Change input depending on model type
+# training <- read_feather('data/ard_training.feather')
+training <- read_feather('data/ard_training_no_clouds.feather')
 
 validation <- read_feather('data/all_insitu_2007_2022.feather') %>%
   filter(subset == 'Validation')
@@ -37,7 +39,7 @@ formula <- TEMPERATURE ~ LAT + LONG + day_of_year + ElevWs + daily_atemp + mean_
 #"predicted" output of the randomForest() function is the oob predictions
 rf_model <- randomForest(formula,
                          data = training,
-                         ntree = 3,
+                         ntree = 100, #Change # of trees from 100 to 3 if running major ARD model
                          importance = T,
                          keep.inbag = T,
                          na.action=na.exclude)
@@ -118,7 +120,9 @@ partial_plot <- function(partial_data){
 
 pp_fig <- partial_plot(pp_data)
 
-ggsave('local_outputs/ard_partial_plot.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
+# ggsave('local_outputs/ard_partial_plot.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
+ggsave('local_outputs/ard_partial_plot_noclouds.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
+
 
 get_oob_predictions <- function(rf_obj, newdata, rf_pred){
   if(!"inbag" %in% names(rf_obj)){stop("The in bag matrix is not present.  Try re-running random forest with keep.inbag = T.")}
@@ -148,7 +152,8 @@ all_output <- oob_matrix %>% mutate(oob_pred = rf_model$predicted,
 
 output_for_feather <- all_output %>% select(COMID, Lat, Long, TEMPERATURE, date, day_of_year)
 
-arrow::write_feather(output_for_feather, 'local_outputs/ard_oob_preds.feather', compression = 'zstd', compression_level = 22)
+#write_csv(output_for_feather, 'local_outputs/ard_oob_preds.csv')
+arrow::write_feather(output_for_feather, 'local_outputs/ard_oob_preds_noclouds.feather', compression = 'zstd', compression_level = 22)
 
 r2 <- mean(rf_model$rsq, na.rm = T)
 print(paste0('R2: ', round(r2, 4)))
@@ -177,7 +182,8 @@ bias_applied <- mean((validation$apply_rf - validation$TEMPERATURE), na.rm = T)
 print(paste0('Bias Validation: ', round(bias_applied, 4)))
 
 
-write_feather(validation, 'local_outputs/ard_validation.feather', compression = 'zstd', compression_level = 22)
+# write_csv(validation, 'local_outputs/ard_validation.csv')
+write_feather(validation, 'local_outputs/ard_validation_noclouds.feather', compression = 'zstd', compression_level = 22)
 
 
 
@@ -188,4 +194,6 @@ predict_2022$rf_temp <- predict(rf_model,
 
 predict_for_csv <- predict_2022 %>% select(COMID, date, rf_temp)
 
-write_feather(predict_for_csv, 'local_outputs/ard_2022_preds.feather', compression = 'zstd', compression_level = 22)
+#Exporting to feather will crash R - export as csv and convert to feather with convert_to_feather.R
+# write_csv(predict_for_csv, 'local_outputs/ard_2022_preds.csv')
+write_csv(predict_for_csv, 'local_outputs/ard_2022_preds_noclouds.csv')
