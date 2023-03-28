@@ -24,6 +24,10 @@ ard_oob <- read_feather('atmos_outputs/ard_oob_preds.feather')
 ard_validation <- read_feather('atmos_outputs/ard_validation.feather')
 ard_2022 <- read_feather('atmos_outputs/ard_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
 
+ard_oob_noclouds <- read_feather('atmos_outputs/ard_oob_preds_noclouds.feather') 
+ard_validation_noclouds <- read_feather('atmos_outputs/ard_validation_noclouds.feather')
+ard_2022_noclouds <- read_feather('atmos_outputs/ard_2022_preds_noclouds.feather') %>% mutate(type = as.factor('Temperature Point'))
+
 insitu_oob <- read_feather('atmos_outputs/insitu_oob_preds.feather')
 insitu_validation <- read_feather('atmos_outputs/insitu_validation.feather')
 insitu_2022 <- read_feather('atmos_outputs/insitu_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
@@ -36,16 +40,28 @@ in_situ_valid <- insitu_all %>% filter(subset =='Validation')
 ggplot(ard_oob, aes(x = day_of_year)) +
   geom_histogram(bins=20, center = 10, color = 'black', fill = 'gray') +
   scale_x_continuous(breaks = seq(0, max(ard_oob$day_of_year), by = 100)) +
-  ylim(0, 36000) +
+  ylim(0, 35000) +
   coord_cartesian(expand = F) +
   xlab('Numeric Day of Year') +
   ylab('Frequency') +
-  ggtitle('ARD Training') +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, face = 'bold', size = 10),
-        axis.title.x = element_text(size = 9),
-        axis.title.y = element_text(size = 9)) -> figure_1_ard_day
-  
+  ggtitle(expression(bold('ARD'['t']))) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 8),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8)) -> figure_1_ard_day
+
+ggplot(ard_oob_noclouds, aes(x = day_of_year)) +
+  geom_histogram(bins=20, center = 10, color = 'black', fill = 'gray') +
+  scale_x_continuous(breaks = seq(0, max(ard_oob$day_of_year), by = 100)) +
+  ylim(0, 150) +
+  coord_cartesian(expand = F) +
+  xlab('Numeric Day of Year') +
+  ylab('Frequency') +
+  ggtitle(expression(bold('ARD'['c']))) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 8),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8)) -> figure_1_ard_day_noclouds
 
 ggplot(in_situ_train, aes(x = day_of_year)) +
   geom_histogram(bins=20, center = 10, color = 'black', fill = 'gray') +
@@ -54,13 +70,12 @@ ggplot(in_situ_train, aes(x = day_of_year)) +
   xlab('Numeric Day of Year') +
   ylab(' ') +
   ylim(0, 1200) +
-  theme_minimal() +
+  theme_bw() +
   ggtitle('In situ Training') +
-  theme(plot.title = element_text(hjust = 0.5, face = 'bold', size = 10),
-        axis.title.x = element_text(size = 9),
-        axis.title.y = element_text(size = 9)) -> figure_1_insitu_day
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold', size = 8),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8)) -> figure_1_insitu_day
   
-
 
 ggplot(in_situ_valid, aes(x = day_of_year)) +
   geom_histogram(bins=20, center = 10, color = 'black', fill = 'gray') +
@@ -69,11 +84,11 @@ ggplot(in_situ_valid, aes(x = day_of_year)) +
   xlab('Numeric Day of Year') +
   ylab(' ') +
   ylim(0, 1200) +
-  theme_minimal() +
+  theme_bw() +
   ggtitle('In situ Validation') +
-  theme(plot.title = element_text(hjust = 0.5, face = 'bold', size = 10),
-        axis.title.x = element_text(size = 9),
-        axis.title.y = element_text(size = 9)) -> figure_1_insitu_day_valid
+  theme(plot.title = element_text(hjust = 0.5, face = 'bold', size = 8),
+        axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8)) -> figure_1_insitu_day_valid
 
 
 #Histogram of Temp
@@ -84,11 +99,24 @@ ggplot(ard_oob, aes(x = TEMPERATURE)) +
   xlab('Temperature (°C)') +
   ylab('Frequency') +
   xlim(0, 45) +
-  ylim(0, 36000) +
+  ylim(0, 35000) +
   ggtitle(' ') +
-  theme_minimal() +
-  theme(axis.title.x = element_text(size = 9),
-        axis.title.y = element_text(size = 9)) -> figure_1_ard_temp
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8)) -> figure_1_ard_temp
+
+ggplot(ard_oob_noclouds, aes(x = TEMPERATURE)) +
+  geom_histogram(bins = 20, boundary = 0, color = 'black', fill = 'gray') +
+  scale_x_continuous(breaks = round(round(seq(min(ard_oob$TEMPERATURE), max(ard_oob$TEMPERATURE), by = 5),1))) +
+  coord_cartesian(expand = F) +
+  xlab('Temperature (°C)') +
+  ylab('Frequency') +
+  xlim(0, 45) +
+  ylim(0, 150) +
+  ggtitle(' ') +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8)) -> figure_1_ard_temp_noclouds
 
 ggplot(in_situ_train, aes(x = TEMPERATURE)) +
   geom_histogram(bins = 20, boundary = 0, color = 'black', fill = 'gray') +
@@ -99,9 +127,9 @@ ggplot(in_situ_train, aes(x = TEMPERATURE)) +
   ylim(0, 1200) +
   xlim(0, 45) +
   ggtitle(' ') +
-  theme_minimal() +
-  theme(axis.title.x = element_text(size = 9),
-        axis.title.y = element_text(size = 9))-> figure_1_insitu_temp
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8))-> figure_1_insitu_temp
 
 ggplot(in_situ_valid, aes(x = TEMPERATURE)) +
   geom_histogram(bins = 20, boundary = 0, color = 'black', fill = 'gray') +
@@ -112,23 +140,25 @@ ggplot(in_situ_valid, aes(x = TEMPERATURE)) +
   ylim(0, 1200) +
   xlim(0, 45) +
   ggtitle(' ') +
-  theme_minimal() +
-  theme(axis.title.x = element_text(size = 9),
-        axis.title.y = element_text(size = 9)) -> figure_1_insitu_temp_valid
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 8),
+        axis.title.y = element_text(size = 8)) -> figure_1_insitu_temp_valid
 
 ggarrange(figure_1_ard_day,
+          figure_1_ard_day_noclouds,
           figure_1_insitu_day,
           figure_1_insitu_day_valid,
           figure_1_ard_temp,
+          figure_1_ard_temp_noclouds,
           figure_1_insitu_temp,
           figure_1_insitu_temp_valid,
-          ncol = 3,
+          ncol = 4,
           nrow = 2,
-          labels = letters[1:6],
-          label.x = 0.25,
+          labels = letters[1:8],
+          label.x = 0.35,
           label.y = 0.9) -> figure_1
 
-ggsave('atmos_figures/figure_1.jpg', figure_1, height = 6, width = 7, units = 'in', dpi = 600, bg = 'white')
+ggsave('atmos_figures/figure_1_noclouds.jpg', figure_1, height = 6, width = 7, units = 'in', dpi = 600, bg = 'white')
 
 
 #Sample spatial density plot
@@ -136,8 +166,12 @@ not_conus <- c("VI","HI","AK","MP","PR","GU","AS")
 conus_bound <- st_read("data/cb_2019_us_state_500k/cb_2019_us_state_500k.shp") %>% filter(!STUSPS %in% not_conus) %>%
   st_transform(st_crs(lakes))
 
-comid_counts_ard <- ard_oob %>% count(COMID) %>% mutate(from = 'ARD Training') %>% left_join(ard_oob) %>% select(!TEMPERATURE)
+comid_counts_ard <- ard_oob %>% count(COMID) %>% mutate(from = 'ARDt') %>% left_join(ard_oob) %>% select(!TEMPERATURE)
 summary(comid_counts_ard)
+
+comid_counts_ard_noclouds <- ard_oob_noclouds %>% count(COMID) %>% mutate(from = 'ARDc') %>%
+  left_join(ard_oob_noclouds) %>% select(!TEMPERATURE)
+summary(comid_counts_ard_noclouds)
 
 comid_counts_insitu <- in_situ_train %>% count(COMID) %>% mutate(from = 'In situ Training') %>% left_join(in_situ_train) %>%
   select(COMID, n, from, LAT, LONG, date, day_of_year) %>% rename(Lat = LAT, Long = LONG)
@@ -147,20 +181,22 @@ comid_counts_valid <- in_situ_valid %>% count(COMID) %>% mutate(from = 'In situ 
   select(COMID, n, from, LAT, LONG, date, day_of_year) %>% rename(Lat = LAT, Long = LONG)
 summary(comid_counts_valid)
 
-comid_counts <- comid_counts_ard %>% rbind(comid_counts_insitu) %>% rbind(comid_counts_valid)
+comid_counts <- comid_counts_ard %>% rbind(comid_counts_ard_noclouds) %>% rbind(comid_counts_insitu) %>% rbind(comid_counts_valid)
 
 ggplot()+
   geom_sf(data = conus_bound,fill = 'white', lwd = .25) +
   geom_point(data = arrange(comid_counts,n),
              aes(x = Long, y= Lat, fill = n, color = n),
-             alpha = .9, shape = 21, size = 1.25) +
+             alpha = .75, shape = 21, size = 1.25) +
   scale_fill_gradientn(name = 'Number of\nTemperature\nObservations',
                        colors = brewer.pal(n = 9, name = 'BuPu')[3:9]
   ) +
   scale_color_gradientn(name = 'Number of\nTemperature\nObservations',
                         colors = brewer.pal(n = 9, name = 'BuPu')[3:9]
   ) +
-  facet_wrap(~factor(from),ncol = 1, nrow = 3)+
+  facet_wrap(~factor(from, levels = c('ARDt', 'ARDc', 'In situ Training', 'In situ Validation'), ordered = T,
+                     labels = c('ARDt', 'ARDc', 'In situ Training', 'In situ Validation')),
+             ncol = 2, nrow = 2) +
   ylab('Latitude') +
   xlab('Longitude') +
   theme_bw() +
@@ -176,17 +212,29 @@ ggplot()+
                          pad_y = unit(1.5,'line'),
                          data = tibble(from = 'In situ Validation')) -> figure_2
 
-ggsave('atmos_figures/figure_2.jpg', figure_2, height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
+ggsave('atmos_figures/figure_2_noclouds.jpg', figure_2, height = 5, width = 7, units = 'in', dpi = 600, bg = 'white')
 
 
 #Validation vs Predicted temperatures graph
 ggplot(ard_validation) +
   geom_point(aes(x=TEMPERATURE, y=apply_rf), color = 'gray50', fill = NA, size = 1, shape = 21) +
   xlab('In situ Validation Temperature (°C)') +
-  ylab('ARD RF Predicted Temperature (°C)') +
+  ylab('ARDt Predicted Temperature (°C)') +
   coord_cartesian(xlim = c(0,40), ylim = c(0,40),expand = F,default = FALSE,clip = "on") +
   theme_bw() +
+  theme(axis.title.x = element_text(size = 7),
+        axis.title.y = element_text(size = 7)) +
   geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75) -> figure_3_ard
+
+ggplot(ard_validation_noclouds) +
+  geom_point(aes(x=TEMPERATURE, y=apply_rf), color = 'gray50', fill = NA, size = 1, shape = 21) +
+  xlab('In situ Validation Temperature (°C)') +
+  ylab('ARDc Predicted Temperature (°C)') +
+  coord_cartesian(xlim = c(0,40), ylim = c(0,40),expand = F,default = FALSE,clip = "on") +
+  theme_bw() +
+  theme(axis.title.x = element_text(size = 7),
+        axis.title.y = element_text(size = 7)) +
+  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75) -> figure_3_ard_noclouds
 
 ggplot(insitu_validation) +
   geom_point(aes(x=TEMPERATURE, y=apply_rf), color = 'gray50', fill = NA, size = 1, shape = 21) +
@@ -194,26 +242,30 @@ ggplot(insitu_validation) +
   ylab('In situ RF Predicted Temperature (°C)') +
   coord_cartesian(xlim = c(0,40), ylim = c(0,40),expand = F,default = FALSE,clip = "on") +
   theme_bw() +
+  theme(axis.title.x = element_text(size = 7),
+        axis.title.y = element_text(size = 7)) +
   geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75) -> figure_3_insitu
 
 ggarrange(figure_3_ard,
+          figure_3_ard_noclouds,
           figure_3_insitu,
-          ncol = 2,
+          ncol = 3,
           nrow = 1,
-          labels = letters[1:2],
-          label.x = 0.15,
+          labels = letters[1:3],
+          label.x = 0.25,
           label.y = 0.97) -> figure_3
 
-ggsave('atmos_figures/figure_3.jpg', figure_3, height = 4, width = 6.5, units = 'in', dpi = 600, bg = 'white')
+ggsave('atmos_figures/figure_3_noclouds.jpg', figure_3, height = 4, width = 6.5, units = 'in', dpi = 600, bg = 'white')
 
 #Spatial Temperature Error figure CONUS
 # loc_insitu <- st_as_sf(insitu_validation, coords = c("LONG", "LAT"), crs = st_crs(lakes), remove = F)
 # loc_ard <- st_as_sf(ard_validation, coords = c("LONG", "LAT"), crs = st_crs(lakes), remove = F)
 
-ard_error <- ard_validation %>% mutate(from = 'ARD')
+ard_error <- ard_validation %>% mutate(from = 'ARDt')
+ard_error_noclouds <- ard_validation_noclouds %>% mutate(from = 'ARDc')
 insitu_error <- insitu_validation %>% mutate(from = 'In situ')
 
-all_error <- ard_error %>% rbind(insitu_error)
+all_error <- ard_error %>% rbind(ard_error_noclouds) %>% rbind(insitu_error)
 
 all_error %>%
   mutate(error_class = case_when(error >= -1 & error <= 1 ~
@@ -251,10 +303,12 @@ ggplot()+
   annotation_scale(aes(style = "bar", location = 'bl'),
                    data = tibble(from = 'In situ')) +
   annotation_north_arrow(style = north_arrow_minimal,
-                         height = unit(1, "cm"),
+                         height = unit(0.75, "cm"),
                          pad_y = unit(1.5,'line'),
                          data = tibble(from = 'In situ')) +
-  facet_wrap(~factor(from),ncol = 1, nrow = 2)+
+  facet_wrap(~factor(from, levels = c('ARDt', 'ARDc', 'In situ'), ordered = T,
+                     labels = c('ARDt', 'ARDc', 'In situ')),
+             ncol = 1, nrow = 3)+
   ylab('Latitude') +
   xlab('Longitude') +
   theme_bw() +
@@ -266,26 +320,44 @@ ggplot()+
         strip.background = element_rect(fill = 'white')) +
   guides(col = guide_legend(ncol = 1, byrow = T)) -> figure_4
   
-ggsave('atmos_figures/figure_4.jpg', figure_4, height = 7, width = 6, units = 'in', dpi = 600, bg = 'white')
+ggsave('atmos_figures/figure_4_noclouds.jpg', figure_4, height = 7, width = 6, units = 'in', dpi = 600, bg = 'white')
 
 
 #2022 ARD and in situ prediction figure
 mean_day_temp_ard <- ard_2022 %>% group_by(date) %>% summarise(date = date,
+                                                               source = 'ARDt',
+                                                               conus_day_mean_temp = mean(rf_temp),
+                                                               quant25 = quantile(rf_temp,0.25),
+                                                               quant75 = quantile(rf_temp,0.75)) %>% unique()
+
+mean_day_temp_ard_noclouds <- ard_2022_noclouds %>% group_by(date) %>% summarise(date = date,
+                                                                                 source = 'ARDc',
                                                                conus_day_mean_temp = mean(rf_temp),
                                                                quant25 = quantile(rf_temp,0.25),
                                                                quant75 = quantile(rf_temp,0.75)) %>% unique()
 
 mean_day_temp_insitu <- insitu_2022 %>% group_by(date) %>% summarise(date = date,
+                                                                     source = 'In situ',
                                                                      conus_day_mean_temp = mean(rf_temp),
                                                                      quant25 = quantile(rf_temp,0.25),
                                                                      quant75 = quantile(rf_temp,0.75)) %>% unique()
+
+mean_day_temp <- mean_day_temp_ard %>% rbind(mean_day_temp_ard_noclouds) %>% rbind(mean_day_temp_insitu)
+
 ard_2022 %>% mutate(rf_temp = rf_temp,
-                    source = "ARD") %>% bind_rows(mutate(insitu_2022,source = "In situ")) %>%
+                    source = "ARD") %>%
+  bind_rows(mutate(ard_2022_noclouds,source = "ARD No Clouds")) %>% 
+  bind_rows(mutate(insitu_2022,source = "In situ")) %>%
+  left_join(mutate(mean_day_temp_ard_noclouds, source = "ARD No Clouds") %>%
+              full_join(mutate(mean_day_temp_ard, source = 'ARD',
+                               conus_day_mean_temp = conus_day_mean_temp,
+                               quant25 = quant25,
+                               quant75 = quant75))) %>%
   left_join(mutate(mean_day_temp_insitu, source = "In situ") %>% 
               full_join(mutate(mean_day_temp_ard, source = 'ARD',
                                conus_day_mean_temp = conus_day_mean_temp,
                                quant25 = quant25,
-                               quant75 = quant75))) %>%# slice(c(1:365,(1600160-365):1600160)) %>%
+                               quant75 = quant75))) %>% # slice(c(1:365,(1600160-365):1600160)) %>%
   mutate(date = yday(date)) %>%
   ggplot() +
   geom_point(aes(x = date, y = rf_temp, color = type), size = 1, alpha = 0.3, shape = 21) +
@@ -309,32 +381,26 @@ ard_2022 %>% mutate(rf_temp = rf_temp,
     strip.background = element_rect(fill = 'white')) -> figure_5
 
 
-ggsave('atmos_figures/figure_5.jpg', figure_5, height = 4, width = 7.5, units = 'in', dpi = 600, bg = 'white')
+ggsave('atmos_figures/figure_5_noclouds.jpg', figure_5, height = 4, width = 7.5, units = 'in', dpi = 600, bg = 'white')
 
 
-ard_2022 %>% mutate(rf_temp = rf_temp,
-                    source = "ARD") %>% bind_rows(mutate(insitu_2022,source = "In situ")) %>%
-  left_join(mutate(mean_day_temp_insitu, source = "In situ") %>% 
-              full_join(mutate(mean_day_temp_ard, source = 'ARD',
-                               conus_day_mean_temp = conus_day_mean_temp,
-                               quant25 = quant25,
-                               quant75 = quant75))) %>%# slice(c(1:365,(1600160-365):1600160)) %>%
+mean_day_temp %>%# slice(c(1:365,(1600160-365):1600160)) %>%
   mutate(date = yday(date)) %>%
   ggplot() +
   geom_line(aes(x = date, y = conus_day_mean_temp, color = source), linewidth = 1) +
   xlim(0,365) +
   xlab("Numeric Day of Year 2022") +
   ylab("Mean Predicted Temperature (°C)") +
-  scale_color_manual(name = ' ',values = c('gray80', 'black'), 
-                     guide = guide_legend(override.aes = list(linetype = c(1,1),
-                                                              shape = c(NA,NA)))) +
+  scale_color_manual(name = ' ',values = c('gray85', 'gray55' ,'black'), 
+                     guide = guide_legend(override.aes = list(linetype = c(1,1,1),
+                                                              shape = c(NA,NA,NA)))) +
   theme_bw() +
   coord_cartesian(xlim = c(0,365), ylim = c(0,30),expand = F,default = FALSE,clip = "on") +
   theme(
     strip.text.x = element_text(
       size = 12, face = "bold")) -> figure_5alt
 
-ggsave('atmos_figures/figure_5alt.jpg', figure_5alt, height = 4, width = 5, units = 'in', dpi = 600, bg = 'white')
+ggsave('atmos_figures/figure_5alt_noclouds.jpg', figure_5alt, height = 4, width = 5, units = 'in', dpi = 600, bg = 'white')
 
 
 
