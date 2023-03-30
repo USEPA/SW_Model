@@ -4,10 +4,7 @@
 #Outputs predicted water temperature
 
 #Written by Hannah Ferriby
-#Date updated 1/26/2023
-
-#wd <- "C:/Users/hferriby/OneDrive - Environmental Protection Agency (EPA)/Profile/Documents/Air_to_Water_Model"
-#setwd(wd)
+#Date updated 3/28/2023
 
 #Load libraries and set seed
 library(tidyverse)
@@ -23,8 +20,8 @@ lakes <- st_read("data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_20
   mutate(COMID = as.numeric(COMID))
 
 #Change input depending on model type
-# training <- read_feather('data/ard_training.feather')
-training <- read_feather('data/ard_training_no_clouds.feather')
+training <- read_feather('data/ard_training.feather')
+# training <- read_feather('data/ard_training_no_clouds.feather')
 
 validation <- read_feather('data/all_insitu_2007_2022.feather') %>%
   filter(subset == 'Validation')
@@ -39,7 +36,7 @@ formula <- TEMPERATURE ~ LAT + LONG + day_of_year + ElevWs + daily_atemp + mean_
 #"predicted" output of the randomForest() function is the oob predictions
 rf_model <- randomForest(formula,
                          data = training,
-                         ntree = 100, #Change # of trees from 100 to 3 if running major ARD model
+                         ntree = 3, #Change to 100 for official runs
                          importance = T,
                          keep.inbag = T,
                          na.action=na.exclude)
@@ -120,10 +117,10 @@ partial_plot <- function(partial_data){
 
 pp_fig <- partial_plot(pp_data)
 
-# ggsave('local_outputs/ard_partial_plot.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
-ggsave('local_outputs/ard_partial_plot_noclouds.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
+ggsave('local_outputs/ard_partial_plot.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
+# ggsave('local_outputs/ard_partial_plot_noclouds.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
 
-
+#Get OOB predictions to then calculate 
 get_oob_predictions <- function(rf_obj, newdata, rf_pred){
   if(!"inbag" %in% names(rf_obj)){stop("The in bag matrix is not present.  Try re-running random forest with keep.inbag = T.")}
   #rf_pred <- predict(rf_obj, newdata = newdata, predict.all = TRUE)
@@ -133,27 +130,31 @@ get_oob_predictions <- function(rf_obj, newdata, rf_pred){
 } 
 
 
-oob_matrix <- get_oob_predictions(rf_model, newdata = training, rf_pred) %>%
+#Can access all trees, but we don't need to. Including this in case it's helpful
+#down the line. The randomForest function provides everything we need for 
+#calculating metrics, but if we need to look at individual trees for any reason
+#this oob_matrix will be needed
+oob_matrix <- get_oob_predictions(rf_model, newdata = training) %>%
   data.frame() %>% mutate(TEMPERATURE = training$TEMPERATURE)
 
-all_output <- oob_matrix %>% mutate(oob_pred = rf_model$predicted,
-                                rmse = apply(oob_matrix, 1, 
-                                            function(x) sqrt(mean((x[1:(length(x))]-x[length(x)])^2, 
-                                                             na.rm =T))),
-                                mdev = apply(oob_matrix, 1, 
-                                             function(x) mean(x[1:(length(x)-1)]-x[length(x)],
-                                                              na.rm = TRUE))) %>%
-              select(TEMPERATURE, oob_pred, rmse, mdev) %>% mutate(COMID = training$COMID,
-                                                              date = training$date,
-                                                              inbag_pred = rf_pred$aggregate,
-                                                              Lat = training$LAT,
-                                                              Long = training$LONG,
-                                                              day_of_year = yday(date))
+all_output <- oob_matrix %>% mutate(oob_pred = rf_model$predicted) %>%
+  select(TEMPERATURE, oob_pred) %>% mutate(COMID = training$COMID,
+                                           date = training$date,
+                                           inbag_pred = rf_pred$aggregate,
+                                           Lat = training$LAT,
+                                           Long = training$LONG,
+                                           day_of_year = yday(date))
+
+summary(all_output$oob_pred)
+summary(training$TEMPERATURE)
 
 output_for_feather <- all_output %>% select(COMID, Lat, Long, TEMPERATURE, date, day_of_year)
 
-#write_csv(output_for_feather, 'local_outputs/ard_oob_preds.csv')
-arrow::write_feather(output_for_feather, 'local_outputs/ard_oob_preds_noclouds.feather', compression = 'zstd', compression_level = 22)
+#Can't export as feather without crashing R, export as .csv
+#Use convert_to_feather in 1_data_processing
+write_csv(output_for_feather, 'local_outputs/ard_oob_preds.csv')
+# arrow::write_feather(output_for_feather, 'local_outputs/ard_oob_preds.feather', compression = 'zstd', compression_level = 22)
+# arrow::write_feather(output_for_feather, 'local_outputs/ard_oob_preds_noclouds.feather', compression = 'zstd', compression_level = 22)
 
 r2 <- mean(rf_model$rsq, na.rm = T)
 print(paste0('R2: ', round(r2, 4)))
@@ -182,12 +183,15 @@ bias_applied <- mean((validation$apply_rf - validation$TEMPERATURE), na.rm = T)
 print(paste0('Bias Validation: ', round(bias_applied, 4)))
 
 
+#Can't export as feather without crashing R, export as .csv
+#Use convert_to_feather in 1_data_processing
+write_feather(validation, 'local_outputs/ard_validation.feather', compression = 'zstd', compression_level = 22)
 # write_csv(validation, 'local_outputs/ard_validation.csv')
-write_feather(validation, 'local_outputs/ard_validation_noclouds.feather', compression = 'zstd', compression_level = 22)
+# write_feather(validation, 'local_outputs/ard_validation_noclouds.feather', compression = 'zstd', compression_level = 22)
 
 
 
-#Predict for all of 2022
+#Predict for all of 2022 ----
 predict_2022$rf_temp <- predict(rf_model,
                                 newdata = predict_2022,
                                 na.rm = T)
@@ -195,5 +199,5 @@ predict_2022$rf_temp <- predict(rf_model,
 predict_for_csv <- predict_2022 %>% select(COMID, date, rf_temp)
 
 #Exporting to feather will crash R - export as csv and convert to feather with convert_to_feather.R
-# write_csv(predict_for_csv, 'local_outputs/ard_2022_preds.csv')
-write_csv(predict_for_csv, 'local_outputs/ard_2022_preds_noclouds.csv')
+write_csv(predict_for_csv, 'local_outputs/ard_2022_preds.csv')
+# write_csv(predict_for_csv, 'local_outputs/ard_2022_preds_noclouds.csv')
