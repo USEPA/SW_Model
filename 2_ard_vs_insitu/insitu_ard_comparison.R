@@ -20,7 +20,7 @@ ggplot(temp_comparison) +
   ylab('ARD Pixel Temperature (°C)') +
   coord_cartesian(xlim = c(-5,45), ylim = c(-5,45),expand = F,default = FALSE,clip = "on") +
   theme_bw() +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.5) -> pixel_comparison_dist
+  geom_abline(slope = 1, intercept = 0, color = "black", lwd = 0.5) -> pixel_comparison_dist
 
 
 temp_comparison_w_clouds <- read_feather("data/ard_insitu_matchup_metadata.feather") %>% filter(depth <= 2) %>%
@@ -36,7 +36,7 @@ ggplot(temp_comparison_w_clouds) +
   ylab('ARD Pixel Temperature (°C)') +
   coord_cartesian(xlim = c(-5,45), ylim = c(-5,45),expand = F,default = FALSE,clip = "on") +
   theme_bw() +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.5) -> pixel_comparison
+  geom_abline(slope = 1, intercept = 0, color = "black", lwd = 0.5) -> pixel_comparison
 
 ggsave('atmos_figures/pixel_comparison.jpg', pixel_comparison, height = 4, width = 4, units = 'in', dpi = 600, bg = 'white')
 
