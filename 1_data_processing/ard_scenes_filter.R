@@ -2,7 +2,7 @@
 library(tidyverse)
 library(arrow)
 
-ard_scenes <- read_csv('data/landsat_ard_all_scenes_2016_2022.csv')
+ard_scenes <- read_feather('data/landsat_ard_all_scenes_2016_2022.feather')
 
 ard_scenes_filter <- ard_scenes %>% select(`Tile Identifier`,
                                             `Acquisition Date`,
