@@ -1,0 +1,182 @@
+# Water Temp Figures: RF variable importand and Partial Dependency Plots
+# JWH
+library(dplyr)
+library(randomForest)
+library(ggplot2)
+library(hrbrthemes)
+library(ggpubr)
+library(arrow)
+library(tidyr)
+library(ggridges)
+
+# RDAs were saved on prior runs of all models, run by jwh 2023-05-19.
+# Loaded here for partial dep and var imp plots
+load("3_ard_model/ard_model.rda")
+load("3_ard_model/pp_data.rda")
+ard_rf <- rf_model
+ard_partial <- pp_data |>
+  mutate(model = "ARDt")
+rm(list = c("rf_model", "pp_data"))
+load("3_ard_model/ard_no_clouds_model.rda")
+load("3_ard_model/pp_data_no_cloud.rda")
+ard_nc_rf <- rf_model
+ard_nc_partial <- pp_data |>
+  mutate(model = "ARDc")
+rm(list = c("rf_model", "pp_data"))
+load("4_insitu_model/insitu_model.rda")
+load("4_insitu_model/pp_data.rda")
+insitu_rf <- rf_model
+insitu_parital <- pp_data |>
+  mutate(model = "in situ")
+rm(list = c("rf_model", "pp_data"))
+all_partial <- bind_rows(ard_partial, ard_nc_partial, insitu_parital)
+
+# Load up data for figures
+in_situ_all <- read_feather("data/all_insitu_2007_2022.feather")
+training1 <- in_situ_all %>% filter(subset == 'Training') |>
+  mutate(model = "in situ")
+training2 <- read_feather('data/ard_training.feather') |>
+  mutate(model = "ARDt")
+training3 <- read_feather('data/ard_training_no_clouds.feather') |>
+  mutate(model = "ARDc")
+
+training <- bind_rows(training1, training2, training3)
+
+probs <- seq(0,1,0.01)
+training_quantiles <- training |>
+  group_by(model) |>
+  reframe("Avg. temperature" = quantile(daily_atemp, probs),
+         "30-day avg. temperature" = quantile(mean_30day, probs),
+         "Longitude" = quantile(LONG, probs), 
+         "Latitude" = quantile(LAT, probs),
+         "Date" = quantile(day_of_year, probs), 
+         "Elevation" = quantile(ElevWs, probs), 
+         "Lake area" = quantile(lake_sa, probs), 
+         "Lake shoreline length" = quantile(lake_shoreline, probs)) |>
+  ungroup() |>
+  pivot_longer(cols = 2:9, names_to = "variable", values_to = "x") |>
+  mutate(variable = factor(variable, levels = c("Avg. temperature", "30-day avg. temperature",
+                                                "Longitude", "Latitude",
+                                                'Date', 
+                                                "Elevation", 
+                                                "Lake area", 
+                                                "Lake shoreline length"),
+                           labels = c("Avg. temperature (°C)", "30-day avg. temperature (°C)",
+                                      "Longitude (m)", "Latitude (m)",
+                                      "Day of Year", "Elevation (m)", 
+                                      "Lake area (km²)", "Lake shoreline length (km)"))) |>
+  
+  mutate(y = NA_real_) |>
+  select(y, x, variable, model)
+  
+
+training_long <- training |>
+  select(comid = COMID, date, model, TEMPERATURE:day_of_year) |>
+  pivot_longer(TEMPERATURE:day_of_year, names_to = "variable", values_to = "values") |>
+  mutate(variable = tolower(variable))
+
+# Plotting Functions
+
+partial_plot <- function(partial_data, quant_data){
+  part_plot <- partial_data %>%
+    ggplot(aes(x = x, y = y, color = model)) +
+    geom_line(linewidth = 1)  +
+    geom_rug(data = quant_data, sides = "b", aes(color = model), linewidth = 1) +
+    facet_wrap(variable ~ ., ncol = 2, 
+               scales = "free", 
+               strip.position = "bottom") +
+    theme_bw() +
+    theme(strip.background = element_rect(fill = 'white', colour = 'white'), 
+          axis.title.y=element_text(size = 10, vjust = 5),
+          title = element_blank(),
+          strip.placement = "outside",
+          strip.text = element_text(size = 10, hjust = 0.5),
+          plot.margin = unit(1:4, 'line')
+    ) +
+    labs(y = expression(paste("Temperature (", degree~C, ")")),
+         x = element_blank()) +
+    scale_color_manual(name = ' ',values = c('gray85', 'gray55' ,'black'), 
+                       guide = guide_legend(override.aes = list(linetype = c(1,1,1),
+                                                                shape = c(NA,NA,NA))))
+  part_plot
+}
+
+
+#' Random Forest Variable Importance Plots
+#' 
+#' This function creates the variable importance plots used in the Kreakie et al. 
+#' paper on random forest modeling of photic zone temperature
+#' 
+#' @param rfobj A random forest object. see \link{\code{randomForest}} for 
+#'              details on creating this object.
+#' @param var_names Optional variable names for the y axis.  Must be in same 
+#'                  order as row.names(rfobj$importance).
+#'              
+varimp_plot <- function(rfobj, var_names = NULL){
+  if(is.null(var_names)){var_names <- data.frame(variable = 
+                                                   row.names(rfobj$importance),
+                                                 labels = row.names(rfobj$importance))}
+  varimp_df <- data.frame(rfobj$importance) |>
+    mutate(perc_inc_mse = X.IncMSE/rfobj$importanceSD,
+           variable = row.names(rfobj$importance)) |>
+    left_join(var_names) |>
+    mutate(labels = reorder(labels, perc_inc_mse))
+  plot_out <- ggplot(varimp_df, aes(y = perc_inc_mse, x = labels)) +
+    geom_bar(stat = "identity", width = 0.5) +
+    coord_flip() +
+    labs(x = "Independent variables", 
+         y = "Percent increase mean square error") +
+    theme_bw() +
+    theme(axis.title.y = element_text(margin = ggplot2::margin(t = 0, r = 0.3, b = 0, 
+                                                               l = 0, "cm")),
+          axis.title.x = element_text(margin = ggplot2::margin(t = 0.3, r = 0, b = 0, 
+                                                               l = 0, "cm")))
+  plot_out
+}
+
+#' Ridge Plots comparing variable distributions across model training data
+#' 
+#' @param train_data long format training data
+compare_distributions <- function(train_data){
+  browser()
+  train_data <- filter(train_data, variable != "lat") |>
+    filter(variable != "long")
+  ggplot(train_data) +
+    geom_density(aes(x = log1p(values), colour = model)) +
+    facet_grid(variable ~ ., scales = "free")
+}
+
+
+###Variable importance figure
+###Names are not getting pulled in corretly...  Wrong order.  Probably need factor with names from model and these as labels.sad
+variable_names <- data.frame(variable = row.names(insitu_rf$importance), 
+                             labels = c("Latitude (m)", "Longitude (m)", 
+                                        "Day of Year", "Elevation (m)", 
+                                        "Avg. temperature (°C)", 
+                                        "30-day avg. temperature (°C)", 
+                                        "Lake area (km²)", 
+                                        "Lake shoreline length (km)"))
+variable_names <- NULL
+varimp_fig_ard <- varimp_plot(ard_rf, variable_names)
+varimp_fig_ard_nc <- varimp_plot(ard_nc_rf, variable_names)
+varimp_fig_insitu <- varimp_plot(insitu_rf, variable_names)
+fig_6_varimp <- ggarrange(varimp_fig_ard,
+                        varimp_fig_ard_nc,
+                        varimp_fig_insitu,
+                        ncol = 1, nrow = 3,
+                        labels = c("ARDt", "ARDc", "in situ"))
+
+# Make da figs
+
+
+
+fig_6_varimp
+ggsave(here::here("local_outputs/fig_6_var_imp.jpg"), fig_6_varimp, width = 5.75, 
+       height = 10, units = "in", dpi = 600)
+
+fig_7_pp <- partial_plot(all_partial, training_quantiles)
+fig_7_pp
+ggsave('local_outputs/figure_7_partial_plots.jpg', fig_7_pp,  height = 10.5, width = 8, 
+       units = 'in', dpi = 600, bg = 'white')
+
+compare_distributions(training_long)

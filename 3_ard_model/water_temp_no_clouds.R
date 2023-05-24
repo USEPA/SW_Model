@@ -12,17 +12,16 @@ library(sf)
 library(lubridate)
 library(randomForest)
 library(arrow)
-library(tidyr)
 set.seed(42)
 
 
 #Load in lake shapefiles, lake morpho data, PRISM, ice presence, and ARD water temp data
-lakes <- st_read("data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp") #%>%
-  #mutate(COMID = as.numeric(COMID))
+lakes <- st_read("data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp") %>%
+  mutate(COMID = as.numeric(COMID))
 
 #Change input depending on model type
-training <- read_feather('data/ard_training.feather')
-# training <- read_feather('data/ard_training_no_clouds.feather')
+#training <- read_feather('data/ard_training.feather')
+training <- read_feather('data/ard_training_no_clouds.feather')
 
 validation <- read_feather('data/all_insitu_2007_2022.feather') %>%
   filter(subset == 'Validation')
@@ -35,13 +34,13 @@ predict_2022 <- read_feather('data/prediction_2022.feather')
 formula <- TEMPERATURE ~ LAT + LONG + day_of_year + ElevWs + daily_atemp + mean_30day + lake_sa + lake_shoreline 
 
 #"predicted" output of the randomForest() function is the oob predictions
-#rf_model <- randomForest(formula,
-#                         data = training,
-#                         ntree = 100, #Change to 100 for official runs
-#                         importance = T,
-#                         keep.inbag = T,
-#                         na.action=na.exclude)
-load("3_ard_model/ard_model.rda")
+rf_model <- randomForest(formula,
+                         data = training,
+                         ntree = 100, #Change to 100 for official runs
+                         importance = T,
+                         keep.inbag = T,
+                         na.action=na.exclude)
+
 
 
 #"aggregate" output of the predict() function is the RF in bag predictions
@@ -50,10 +49,11 @@ rf_pred <- predict(rf_model,
                    predict.all = TRUE, 
                    na.action=na.exclude)
 
+
 #Partial Dependency Plots ----
 partplot_lat <- partialPlot(rf_model, as.data.frame(training), LAT, plot = FALSE)
 partplot_long <- partialPlot(rf_model, as.data.frame(training), LONG, plot = FALSE)
-partplot_date <- partialPlot(rf_model, as.data.frame(training), day_of_year, plot = FALSE)
+partplot_date <- partplot_date <- partialPlot(rf_model, as.data.frame(training), day_of_year, plot = FALSE)
 partplot_elev <- partialPlot(rf_model, as.data.frame(training), ElevWs, plot = FALSE)
 partplot_avg_temp <- partialPlot(rf_model, as.data.frame(training), daily_atemp, plot = FALSE)
 partplot_thirty_day <- partialPlot(rf_model, as.data.frame(training), mean_30day, plot = FALSE)
@@ -93,39 +93,15 @@ pp_data <- pp_data1 %>%
                                       "Day of Year", "Elevation (m)", 
                                       "Lake area (km²)", "Lake shoreline length (km)")))
 
-#save(pp_data, file = "3_ard_model/pp_data.rda")
-#save(rf_model, file = "3_ard_model/ard_model.rda")
-load("3_ard_model/pp_data.rda")
-probs <- seq(0,1,0.01)
-training_quantiles <- tibble(y = NA_real_,
-                             "Avg. temperature" = quantile(training$daily_atemp, probs),
-                             "30-day avg. temperature" = quantile(training$mean_30day, probs),
-                             "Longitude" = quantile(training$LONG, probs), 
-                             "Latitude" = quantile(training$LAT, probs),
-                             'Date' = quantile(training$day_of_year, probs), 
-                             "Elevation" = quantile(training$ElevWs, probs), 
-                             "Lake area" = quantile(training$lake_sa, probs), 
-                             "Lake shoreline length" = quantile(training$lake_shoreline, probs)) |>
-  pivot_longer(cols = 2:9, names_to = "variable", values_to = "x") |>
-  select(y, x, variable) |>
-  mutate(variable = factor(variable, levels = c("Avg. temperature", "30-day avg. temperature",
-                                                "Longitude", "Latitude",
-                                                'Date', 
-                                                "Elevation", 
-                                                "Lake area", 
-                                                "Lake shoreline length"),
-                           labels = c("Avg. temperature (°C)", "30-day avg. temperature (°C)",
-                                      "Longitude (m)", "Latitude (m)",
-                                      "Day of Year", "Elevation (m)", 
-                                      "Lake area (km²)", "Lake shoreline length (km)")))
-  
-partial_plot <- function(partial_data, quant_data){
+#save(pp_data, file = "3_ard_model/pp_data_no_cloud.rda")
+save(rf_model, file = "3_ard_model/ard_no_clouds_model.rda")
+
+partial_plot <- function(partial_data){
   part_plot <- partial_data %>%
     ggplot(aes(x = x, y = y)) +
     geom_line() +
-    geom_rug(data = quant_data, sides = "b") +
     facet_wrap(variable ~ ., ncol = 2, 
-               scales = "free", 
+               scales = "free_x", 
                strip.position = "bottom") +
     theme_bw() +
     theme(strip.background = element_rect(fill = 'white', colour = 'white'), 
@@ -141,10 +117,10 @@ partial_plot <- function(partial_data, quant_data){
 }
 
 
-pp_fig <- partial_plot(pp_data, training_quantiles)
-pp_fig
-ggsave('local_outputs/ard_partial_plot.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
-# ggsave('local_outputs/ard_partial_plot_noclouds.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
+pp_fig <- partial_plot(pp_data)
+
+#ggsave('local_outputs/ard_partial_plot.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
+ggsave('local_outputs/ard_partial_plot_noclouds.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
 
 #Get OOB predictions to then calculate 
 get_oob_predictions <- function(rf_obj, newdata, rf_pred){
