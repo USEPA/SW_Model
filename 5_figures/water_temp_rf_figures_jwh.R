@@ -7,10 +7,12 @@ library(hrbrthemes)
 library(ggpubr)
 library(arrow)
 library(tidyr)
-library(ggridges)
+library(sf)
+
 
 # RDAs were saved on prior runs of all models, run by jwh 2023-05-19.
 # Loaded here for partial dep and var imp plots
+
 load("3_ard_model/ard_model.rda")
 load("3_ard_model/pp_data.rda")
 ard_rf <- rf_model
@@ -31,6 +33,8 @@ insitu_parital <- pp_data |>
 rm(list = c("rf_model", "pp_data"))
 all_partial <- bind_rows(ard_partial, ard_nc_partial, insitu_parital)
 
+lakes <- st_read('data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp')
+
 # Load up data for figures
 in_situ_all <- read_feather("data/all_insitu_2007_2022.feather")
 training1 <- in_situ_all %>% filter(subset == 'Training') |>
@@ -39,8 +43,11 @@ training2 <- read_feather('data/ard_training.feather') |>
   mutate(model = "ARDt")
 training3 <- read_feather('data/ard_training_no_clouds.feather') |>
   mutate(model = "ARDc")
+training4 <- in_situ_all %>% filter(subset == 'Validation') |>
+  mutate(model = "validation")
 
-training <- bind_rows(training1, training2, training3)
+training <- bind_rows(training1, training2, training3, training4) 
+  
 
 probs <- seq(0,1,0.01)
 training_quantiles <- training |>
@@ -71,8 +78,13 @@ training_quantiles <- training |>
   
 
 training_long <- training |>
-  select(comid = COMID, date, model, TEMPERATURE:day_of_year) |>
-  pivot_longer(TEMPERATURE:day_of_year, names_to = "variable", values_to = "values") |>
+  st_as_sf(coords = c("LONG", "LAT"), crs = st_crs(lakes)) |>
+  st_transform(crs = 4326) %>% 
+  mutate(long_dd = st_coordinates(.)[,1],
+         lat_dd = st_coordinates(.)[,2]) |>
+  st_drop_geometry() |>
+  select(comid = COMID, date, model, TEMPERATURE:day_of_year, long_dd:lat_dd) |>
+  pivot_longer(TEMPERATURE:lat_dd, names_to = "variable", values_to = "values") |>
   mutate(variable = tolower(variable))
 
 # Plotting Functions
@@ -95,7 +107,7 @@ partial_plot <- function(partial_data, quant_data){
     ) +
     labs(y = expression(paste("Temperature (", degree~C, ")")),
          x = element_blank()) +
-    scale_color_manual(name = ' ',values = c('gray85', 'gray55' ,'black'), 
+    scale_color_manual(name = ' ',values = c('gray75', 'gray55' ,'black'), 
                        guide = guide_legend(override.aes = list(linetype = c(1,1,1),
                                                                 shape = c(NA,NA,NA))))
   part_plot
@@ -138,12 +150,31 @@ varimp_plot <- function(rfobj, var_names = NULL){
 #' 
 #' @param train_data long format training data
 compare_distributions <- function(train_data){
-  browser()
-  train_data <- filter(train_data, variable != "lat") |>
-    filter(variable != "long")
-  ggplot(train_data) +
-    geom_density(aes(x = log1p(values), colour = model)) +
-    facet_grid(variable ~ ., scales = "free")
+  #browser()
+  #Should I do distributions of all data (e.g. multiple temp observations, but static lake obs (e.g. elev, lat, etc.)
+  #Or grab unique values for each lake
+  #I.E. Data as modeled or just the unique ones.
+  train_data_split <- train_data |>
+    filter(!(variable == "lake_sa" & values > 250)) |>
+    filter(!(variable == "lake_shoreline" & values > 250)) |>
+    filter(!variable %in% c("Longitude", "Latitude")) |>
+    group_by(comid, model, variable) |>
+    #reframe(values = unique(values)) |>
+    ungroup() |>
+    group_split(variable)
+  
+  plot_it <- function(x){
+    label <- unique(x$variable)
+    ggplot(x) +
+      geom_density(aes(x = values, colour = model)) +
+      theme_ipsum_rc() +
+      labs(x = label) +
+      scale_color_manual(name = ' ',values = c('gray75', 'gray55' ,'black', 'darkblue'), 
+                         guide = guide_legend(override.aes = list(linetype = c(1,1,1,1),
+                                                                  shape = c(NA,NA,NA,NA))))
+  }
+  
+  plots <- purrr::map(train_data_split, plot_it)
 }
 
 
@@ -179,4 +210,72 @@ fig_7_pp
 ggsave('local_outputs/figure_7_partial_plots.jpg', fig_7_pp,  height = 10.5, width = 8, 
        units = 'in', dpi = 600, bg = 'white')
 
-compare_distributions(training_long)
+predictor_dist <- compare_distributions(training_long)
+combo_dist <- ggarrange(plotlist = predictor_dist, ncol = 3, nrow = 3, common.legend = TRUE, legend = "bottom")
+ggsave('local_outputs/predcitor_distributions2.jpg', combo_dist,  height = 10.5, width = 8, 
+       units = 'in', dpi = 600, bg = 'white')
+
+
+
+### Testing
+### 
+### 
+lakes <- st_read('data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp')
+
+ard_oob <- read_feather('atmos_outputs/ard_oob_preds.feather') 
+ard_validation <- read_feather('atmos_outputs/ard_validation.feather')
+ard_2022 <- read_feather('atmos_outputs/ard_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
+
+ard_oob_noclouds <- read_feather('atmos_outputs/ard_oob_preds_noclouds.feather') 
+ard_validation_noclouds <- read_feather('atmos_outputs/ard_validation_noclouds.feather')
+ard_2022_noclouds <- read_feather('atmos_outputs/ard_2022_preds_noclouds.feather') %>% mutate(type = as.factor('Temperature Point'))
+
+insitu_oob <- read_feather('atmos_outputs/insitu_oob_preds.feather')
+insitu_validation <- read_feather('atmos_outputs/insitu_validation.feather')
+insitu_2022 <- read_feather('atmos_outputs/insitu_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
+
+insitu_all <- read_feather('data/all_insitu_2007_2022.feather')
+in_situ_train <- insitu_all %>% filter(subset == 'Training')
+in_situ_valid <- insitu_all %>% filter(subset =='Validation')
+not_conus <- c("VI","HI","AK","MP","PR","GU","AS")
+
+ard_error <- ard_validation %>% mutate(from = 'ARDt')
+ard_error_noclouds <- ard_validation_noclouds %>% mutate(from = 'ARDc')
+insitu_error <- insitu_validation %>% mutate(from = 'In situ')
+
+all_error <- ard_error %>% rbind(ard_error_noclouds) %>% rbind(insitu_error)
+
+all_error %>%
+  mutate(error_class = case_when(error >= -1 & error <= 1 ~
+                                   "-1 - 1",
+                                 error > 1 & error <= 2 ~
+                                   "1 - 2",
+                                 error > 2 & error <= 3 ~
+                                   "2 - 3",
+                                 error > 3 ~
+                                   "> 3",
+                                 error < -1 & error >= -2 ~
+                                   "-1 - -2",
+                                 error < -2 & error >= -3 ~
+                                   "-2 - -3",
+                                 error < -3 ~
+                                   "< -3",
+                                 TRUE ~ ""))  %>%
+  mutate(error_class = factor(error_class, 
+                              levels = c("> 3", "2 - 3", "1 - 2", "-1 - 1", "-1 - -2", "-2 - -3", "< -3"), 
+                              ordered = TRUE)) %>%
+  mutate(error_class = factor(error_class, levels = c("> 3", "2 - 3", "1 - 2", "-1 - 1", "-1 - -2", "-2 - -3", "< -3"), 
+                              ordered = TRUE)) %>% na.omit()-> error_circles
+
+st_as_sf(error_circles, coords = c("LONG", "LAT"),crs = st_crs(lakes)) -> error_sf
+
+conus_bound <- st_read("data/cb_2019_us_state_500k/cb_2019_us_state_500k.shp") %>% filter(!STUSPS %in% not_conus) %>%
+  st_transform(st_crs(lakes))
+
+error_sf_jitter <- st_jitter(error_sf, factor = 0.006)
+us_hex <- st_make_grid(conus_bound, square = FALSE)
+ggplot() +
+  geom_sf(data = conus_bound,fill = 'white', lwd = .25) +
+  geom_sf(data = us_hex) +
+  geom_sf(data = error_sf_jitter, aes(color = log1p(error)), alpha = 0.5) +
+  scale_colour_gradient2()
