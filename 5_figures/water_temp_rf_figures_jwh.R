@@ -8,6 +8,7 @@ library(ggpubr)
 library(arrow)
 library(tidyr)
 library(sf)
+library(lubridate)
 
 
 # RDAs were saved on prior runs of all models, run by jwh 2023-05-19.
@@ -17,13 +18,13 @@ load("3_ard_model/ard_model.rda")
 load("3_ard_model/pp_data.rda")
 ard_rf <- rf_model
 ard_partial <- pp_data |>
-  mutate(model = "ARDt")
+  mutate(model = "ARDt ")
 rm(list = c("rf_model", "pp_data"))
 load("3_ard_model/ard_no_clouds_model.rda")
 load("3_ard_model/pp_data_no_cloud.rda")
 ard_nc_rf <- rf_model
 ard_nc_partial <- pp_data |>
-  mutate(model = "ARDc")
+  mutate(model = "ARDc ")
 rm(list = c("rf_model", "pp_data"))
 load("4_insitu_model/insitu_model.rda")
 load("4_insitu_model/pp_data.rda")
@@ -85,12 +86,53 @@ training_long <- training |>
   st_drop_geometry() |>
   select(comid = COMID, date, model, TEMPERATURE:day_of_year, long_dd:lat_dd) |>
   pivot_longer(TEMPERATURE:lat_dd, names_to = "variable", values_to = "values") |>
-  mutate(variable = tolower(variable))
+  mutate(variable = tolower(variable)) %>%
+  mutate(variable = factor(variable, levels = c("daily_atemp", "mean_30day",
+                                                "long_dd", "lat_dd",
+                                                'day_of_year', 
+                                                "elevws", 
+                                                "lake_sa", 
+                                                "lake_shoreline","temperature"),
+                           labels = c("Avg. temperature (°C)", "30-day avg. temperature (°C)",
+                                      "Longitude (m)", "Latitude (m)",
+                                      "Day of Year", "Elevation (m)", 
+                                      "Lake area (km²)", "Lake shoreline length (km)",
+                                      "Water Temperature (°C)")))
+  
 
+nhd_predictors <- read_feather("data/nhd_predictors.feather") %>%
+  mutate(date = today(), model = "nhd",
+         lake_sa = as.numeric(lake_sa), 
+         lake_shoreline = as.numeric(lake_shoreline)) %>%
+  select(comid = COMID, date, model, lake_sa:elevation, -long_aea, -lat_aea) %>%
+  pivot_longer(lake_sa:elevation, names_to = "variable", values_to = "values") %>%
+  mutate(variable = factor(variable, levels = c("daily_atemp", "mean_30day",
+                                                "long_dd", "lat_dd",
+                                                'day_of_year', 
+                                                "elevation", 
+                                                "lake_sa", 
+                                                "lake_shoreline","temperature"),
+                           labels = c("Avg. temperature (°C)", "30-day avg. temperature (°C)",
+                                      "Longitude (m)", "Latitude (m)",
+                                      "Day of Year", "Elevation (m)", 
+                                      "Lake area (km²)", "Lake shoreline length (km)",
+                                      "Water Temperature (°C)"))) %>%
+  bind_rows(training_long) %>%
+  select(-date) %>%
+  unique() %>%
+  filter(variable %in% c("Longitude (m)", "Latitude (m)",
+                         "Elevation (m)", "Lake area (km²)", 
+                         "Lake shoreline length (km)")) %>%
+  mutate(model = factor(model, levels = c("nhd", "ARDc", "ARDt", 
+                                          "in situ","validation"),
+                        labels = c("NHD Waterbodies", "ARDc", "ARDt", "in situ",
+                                   "validation"),
+                        ordered = TRUE))
 # Plotting Functions
 
 partial_plot <- function(partial_data, quant_data){
-  part_plot <- partial_data %>%
+  part_plot <- p
+  artial_data %>%
     ggplot(aes(x = x, y = y, color = model)) +
     geom_line(linewidth = 1)  +
     geom_rug(data = quant_data, sides = "b", aes(color = model), linewidth = 1) +
@@ -149,7 +191,8 @@ varimp_plot <- function(rfobj, var_names = NULL){
 #' Ridge Plots comparing variable distributions across model training data
 #' 
 #' @param train_data long format training data
-compare_distributions <- function(train_data){
+compare_distributions <- function(train_data, style = c("1","2")){
+  style <- match.arg(style)
   #browser()
   #Should I do distributions of all data (e.g. multiple temp observations, but static lake obs (e.g. elev, lat, etc.)
   #Or grab unique values for each lake
@@ -162,18 +205,42 @@ compare_distributions <- function(train_data){
     #reframe(values = unique(values)) |>
     ungroup() |>
     group_split(variable)
-  
-  plot_it <- function(x){
-    label <- unique(x$variable)
-    ggplot(x) +
-      geom_density(aes(x = values, colour = model)) +
-      theme_ipsum_rc() +
-      labs(x = label) +
-      scale_color_manual(name = ' ',values = c('gray75', 'gray55' ,'black', 'darkblue'), 
-                         guide = guide_legend(override.aes = list(linetype = c(1,1,1,1),
-                                                                  shape = c(NA,NA,NA,NA))))
+  if(style == "1"){
+    plot_it <- function(x){
+      label <- unique(x$variable)
+      ggplot(x) +
+        geom_density(aes(x = values, colour = model)) +
+        theme_ipsum_rc() +
+        labs(x = label) +
+        scale_color_manual(name = ' ',values = c('gray75', 'gray55' ,'black', 'darkblue'), 
+                           guide = guide_legend(override.aes = list(linetype = c(1,1,1,1),
+                                                                    shape = c(NA,NA,NA,NA))))
+    }
+  } else if(style == "2"){
+    plot_it <- function(x){
+      label <- unique(x$variable)
+      gg <- ggplot(x) +
+        geom_jitter(aes(y = values, x = model), color = "gray75", alpha = 0.5) +
+        geom_boxplot(aes(y = values, x = model), alpha = 0.5) +
+        theme_ipsum_rc() +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+        labs(y = label, x = "") +
+        scale_color_manual(name = ' ', 
+                           values = c('gray75', 'gray55' ,'black', 'darkblue'), 
+                           guide = guide_legend(override.aes = 
+                                                  list(linetype = c(1,1,1,1), 
+                                                       shape = c(NA,NA,NA,NA))))
+      if(label %in% c("Lake area (km²)", "Lake shoreline length (km)")) {
+        gg <- gg +
+          scale_y_log10() + 
+          labs(y = paste0("Log ", label, x = ""))
+      }
+      gg
+    }
   }
   
+  #browser()
+  #plot_it(train_data_split[[1]]) 
   plots <- purrr::map(train_data_split, plot_it)
 }
 
@@ -210,15 +277,22 @@ fig_7_pp
 ggsave('local_outputs/figure_7_partial_plots.jpg', fig_7_pp,  height = 10.5, width = 8, 
        units = 'in', dpi = 600, bg = 'white')
 
-predictor_dist <- compare_distributions(training_long)
+predictor_dist <- compare_distributions(training_long, style = "2")
 combo_dist <- ggarrange(plotlist = predictor_dist, ncol = 3, nrow = 3, common.legend = TRUE, legend = "bottom")
-ggsave('local_outputs/predcitor_distributions2.jpg', combo_dist,  height = 10.5, width = 8, 
+ggsave('local_outputs/fig2_boxplots.jpg', combo_dist,  height = 10.5, width = 8, 
+       units = 'in', dpi = 600, bg = 'white')
+
+nhd_predictor_dist <- compare_distributions(nhd_predictors, style = "2")
+nhd_combo_dist <- ggarrange(plotlist = nhd_predictor_dist, ncol = 2, nrow = 3, common.legend = TRUE, legend = "bottom")
+ggsave('local_outputs/fig10_nhd_boxplots.jpg', nhd_combo_dist,  height = 10.5, width = 8, 
        units = 'in', dpi = 600, bg = 'white')
 
 
 
+
+################################################################################
 ### Testing
-### 
+### Ignore for now, not including (2023-08-02, jwh)
 ### 
 lakes <- st_read('data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp')
 
