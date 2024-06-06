@@ -37,7 +37,7 @@ formula <- TEMPERATURE ~ LAT + LONG + day_of_year + ElevWs + daily_atemp + mean_
 #"predicted" output of the randomForest() function is the oob predictions
 rf_model <- randomForest(formula,
                          data = training,
-                         ntree = 3, #Change to 100 for official runs
+                         ntree = 100, #Change to 100 for official runs
                          importance = T,
                          keep.inbag = T,
                          keep.forest = T,
@@ -91,6 +91,8 @@ pp_data <- pp_data1 %>%
                                       "Day of Year", "Elevation (m)", 
                                       "Lake area (km²)", "Lake shoreline length (km)")))
 
+save(pp_data, file = "4_insitu_model/pp_data.rda")
+save(rf_model, file = "4_insitu_model/insitu_model.rda")
 
 partial_plot <- function(partial_data){
   part_plot <- partial_data %>%
