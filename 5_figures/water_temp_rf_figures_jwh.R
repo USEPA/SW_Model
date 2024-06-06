@@ -41,9 +41,9 @@ in_situ_all <- read_feather("data/all_insitu_2007_2022.feather")
 training1 <- in_situ_all %>% filter(subset == 'Training') |>
   mutate(model = "in situ")
 training2 <- read_feather('data/ard_training.feather') |>
-  mutate(model = "ARDt")
+  mutate(model = "Landsat(LCF)")
 training3 <- read_feather('data/ard_training_no_clouds.feather') |>
-  mutate(model = "ARDc")
+  mutate(model = "Landsat(SCF)")
 training4 <- in_situ_all %>% filter(subset == 'Validation') |>
   mutate(model = "validation")
 
@@ -93,11 +93,11 @@ training_long <- training |>
                                                 "elevws", 
                                                 "lake_sa", 
                                                 "lake_shoreline","temperature"),
-                           labels = c("Avg. temperature (°C)", "30-day avg. temperature (°C)",
-                                      "Longitude (m)", "Latitude (m)",
-                                      "Day of Year", "Elevation (m)", 
-                                      "Lake area (km²)", "Lake shoreline length (km)",
-                                      "Water Temperature (°C)")))
+                           labels = c("a.) Avg. temperature (°C)", "b.) 30-day avg. temperature (°C)",
+                                      "c.) Longitude (Dec. Deg.)", "d.) Latitude (Dec. Degrees)",
+                                      "e.) Day of Year", "f.) Elevation (m)", 
+                                      "g.) Lake area (km²)", "h.) Lake shoreline length (km)",
+                                      "i.) Water Temperature (°C)")))
   
 
 nhd_predictors <- read_feather("data/nhd_predictors.feather") %>%
@@ -112,11 +112,11 @@ nhd_predictors <- read_feather("data/nhd_predictors.feather") %>%
                                                 "elevation", 
                                                 "lake_sa", 
                                                 "lake_shoreline","temperature"),
-                           labels = c("Avg. temperature (°C)", "30-day avg. temperature (°C)",
+                           labels = c("Avg. temp. (°C)", "30-day avg. temp. (°C)",
                                       "Longitude (m)", "Latitude (m)",
                                       "Day of Year", "Elevation (m)", 
                                       "Lake area (km²)", "Lake shoreline length (km)",
-                                      "Water Temperature (°C)"))) %>%
+                                      "Water Temp. (°C)"))) %>%
   bind_rows(training_long) %>%
   select(-date) %>%
   unique() %>%
@@ -125,7 +125,7 @@ nhd_predictors <- read_feather("data/nhd_predictors.feather") %>%
                          "Lake shoreline length (km)")) %>%
   mutate(model = factor(model, levels = c("nhd", "ARDc", "ARDt", 
                                           "in situ","validation"),
-                        labels = c("NHD Waterbodies", "ARDc", "ARDt", "in situ",
+                        labels = c("NHD Waterbodies", "Landsat(LakeCloudFree)", "Landsat(ScenceCloudFree)", "in situ",
                                    "validation"),
                         ordered = TRUE))
 # Plotting Functions
@@ -248,12 +248,13 @@ compare_distributions <- function(train_data, style = c("1","2")){
 ###Variable importance figure
 ###Names are not getting pulled in corretly...  Wrong order.  Probably need factor with names from model and these as labels.sad
 variable_names <- data.frame(variable = row.names(insitu_rf$importance), 
-                             labels = c("Latitude (m)", "Longitude (m)", 
-                                        "Day of Year", "Elevation (m)", 
-                                        "Avg. temperature (°C)", 
-                                        "30-day avg. temperature (°C)", 
-                                        "Lake area (km²)", 
-                                        "Lake shoreline length (km)"))
+                             labels = c("a.) Latitude (m)", "b.) Longitude (Dec. Deg.)", 
+                                        "c.) Day of Year", "d.) Elevation (Dec. Deg.)", 
+                                        "e.) Avg. temp. (°C)", 
+                                        "f.) 30-day avg. temp. (°C)", 
+                                        "g.) Lake area (km²)", 
+                                        "h.) Lake shoreline length (km)")) |>
+  mutate(variable = factor(variable, labels = labels))
 variable_names <- NULL
 varimp_fig_ard <- varimp_plot(ard_rf, variable_names)
 varimp_fig_ard_nc <- varimp_plot(ard_nc_rf, variable_names)
@@ -262,7 +263,7 @@ fig_6_varimp <- ggarrange(varimp_fig_ard,
                         varimp_fig_ard_nc,
                         varimp_fig_insitu,
                         ncol = 1, nrow = 3,
-                        labels = c("ARDt", "ARDc", "in situ"))
+                        labels = c("Landsat(LakeCloudFree)", "Landsat(SceneCloudFree)", "in situ"))
 
 # Make da figs
 
@@ -279,7 +280,7 @@ ggsave('local_outputs/figure_7_partial_plots.jpg', fig_7_pp,  height = 10.5, wid
 
 predictor_dist <- compare_distributions(training_long, style = "2")
 combo_dist <- ggarrange(plotlist = predictor_dist, ncol = 3, nrow = 3, common.legend = TRUE, legend = "bottom")
-ggsave('local_outputs/fig2_boxplots.jpg', combo_dist,  height = 10.5, width = 8, 
+ggsave('local_outputs/fig4_boxplots.jpg', combo_dist,  height = 10.5, width = 8, 
        units = 'in', dpi = 600, bg = 'white')
 
 nhd_predictor_dist <- compare_distributions(nhd_predictors, style = "2")

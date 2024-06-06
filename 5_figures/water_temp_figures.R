@@ -195,7 +195,7 @@ ggplot()+
                         colors = brewer.pal(n = 9, name = 'BuPu')[3:9]
   ) +
   facet_wrap(~factor(from, levels = c('ARDt', 'ARDc', 'In situ Training', 'In situ Validation'), ordered = T,
-                     labels = c('ARDt', 'ARDc', 'In situ Training', 'In situ Validation')),
+                     labels = c('a.) Landsat(LakeCloudFree)', 'b.) Landsat(SceneCloudFree)', 'c.) In situ Training', 'd.) In situ Validation')),
              ncol = 2, nrow = 2) +
   ylab('Latitude') +
   xlab('Longitude') +
