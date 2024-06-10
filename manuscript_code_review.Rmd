@@ -1,0 +1,27 @@
+---
+title: "Code review for manuscript"
+author: "Jeff Hollister"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Table 1
+Models and summary stats in table are from 
+
+- 3_ard_model/water_temp.R for Landsat(LakeCloudFree)
+  - rf model in 3_ard_model/ard_model.rda
+  - numbers match!
+- 3_ard_model/water_temp_no_clouds.R for Landsat(SceneCloudFree)
+  - rf model in 3_ard_model/ard_no_clouds_model.rda
+  - numbers match!
+- 4_insitu_model/water_temp_insitu.R for in situ
+  - rf model in 4_insitu_model.rda
+  - numbers not quite right...  Re-running model.
+  - Still same, looks like some slightly off rounding.
+  - Corrected in manuscript: jwh, 2024-06-10
+
+

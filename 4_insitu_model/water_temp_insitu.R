@@ -35,14 +35,14 @@ predict_2022 <- read_feather("data/prediction_2022.feather")
 formula <- TEMPERATURE ~ LAT + LONG + day_of_year + ElevWs + daily_atemp + mean_30day + lake_sa + lake_shoreline 
 
 #"predicted" output of the randomForest() function is the oob predictions
-rf_model <- randomForest(formula,
-                         data = training,
-                         ntree = 100, #Change to 100 for official runs
-                         importance = T,
-                         keep.inbag = T,
-                         keep.forest = T,
-                         na.action=na.exclude)
-
+#rf_model <- randomForest(formula,
+#                         data = training,
+#                         ntree = 100, #Change to 100 for official runs
+#                         importance = T,
+#                         keep.inbag = T,
+#                         keep.forest = T,
+#                         na.action=na.exclude)
+load("4_insitu_model/insitu_model.rda")
 rf_pred <- predict(rf_model,
                    newdata = training,
                    predict.all = T,
