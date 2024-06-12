@@ -10,7 +10,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Table 1
-Models and summary stats in table are from 
 
 - 3_ard_model/water_temp.R for Landsat(LakeCloudFree)
   - rf model in 3_ard_model/ard_model.rda
@@ -24,4 +23,50 @@ Models and summary stats in table are from
   - Still same, looks like some slightly off rounding.
   - Corrected in manuscript: jwh, 2024-06-10
 
+## Figure 2
 
+- Code: 2_ard_vs_insitu/insitu_ard_comparison.R
+- Figure: atmos_figures/pixel_comparison_w_cloud_cover.jpg
+
+## Figure 3
+
+- Code: lines 186-215 in 5_figure/water_temp_figures.R
+- Figure: atmos_figures/figure_2_noclouds.jpg
+
+## Figure 4
+
+- Code: lines 191-245 in 5_figures/water_temp_rf_figures_jwh.R
+- Figure: local_outputs/fig4_boxplots.jpg
+- Need to work on this.  Looks awful with new axis labels
+
+## Figure 5
+
+- Code: lines 387-403 in 5_figure/water_temp_figures.R
+- Figure: figure_5alt_noclouds.jpg
+- Make sure ARDc and ARDt renamed
+
+## Figure 6
+
+- Code: lines 169-189, 248-266 in 5_figures/water_temp_rf_figures_jwh.R
+- Figure: local_outputs/fig_6_var_imp.jpg
+- label a, b, c, and have y-axis text match figure 1
+
+## Figure 7
+
+- Code: lines
+- Figure: 
+
+## Figure 8
+
+- Code: lines
+- Figure: 
+
+## Figure 9
+
+- Code: lines
+- Figure: 
+
+## Figure 10
+
+- Code: lines
+- Figure: 

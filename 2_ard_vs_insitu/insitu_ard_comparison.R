@@ -9,7 +9,8 @@ rm(list = ls(all = T))
 
 # Load libraries ----
 library(tidyverse)
-library(richtext)
+#library(richtext) jwh removed - couldn't find this package anywhere!
+library(ggtext) #jwh added - geom for richtext included here.
 library(sf)
 library(lubridate)
 library(arrow)
@@ -89,6 +90,7 @@ plot_data %>%
   theme_bw() +
   theme(text = element_text(size = 10),
         strip.background = element_rect(fill = 'white'))
+
 
 ggsave('atmos_figures/pixel_comparison_w_cloud_cover.jpg', 
        height = 4.75, width = 5.75, units = 'in', dpi = 600, bg = 'white')
