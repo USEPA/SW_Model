@@ -35,7 +35,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Figure 4
 
-- Code: lines 191-245 in 5_figures/water_temp_rf_figures_jwh.R
+- Code: lines 191-245, 281-284 in 5_figures/water_temp_rf_figures_jwh.R
 - Figure: local_outputs/fig4_boxplots.jpg
 - Need to work on this.  Looks awful with new axis labels
 
@@ -53,20 +53,23 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Figure 7
 
-- Code: lines
-- Figure: 
+- Code: lines 131-156, 276-279 in 5_figures/water_temp_rf_figures_jwh.R
+- Figure: local_output/figure_7_partial_plots.jpg
+- Please include (a), (b), ( c), (d)…(h). Please rename ARDt and ARDc. Please make y-axis label match wording in text and Figure 1. Please fix Lat & Long x-axis labels. Please order the figure with a=avg temp; b=30-day; c=day of year; d=longitude; e=latitude; f=area; g=shoreline; and h=elevation to fit the text order.
 
 ## Figure 8
 
-- Code: lines
-- Figure: 
+- Code: lines 218-258 in 5_figures/water_temp_figures.R
+- Figure: atmos_figures/figure_3_noclouds.jpg
+- Add stats and n (which stats?)
 
 ## Figure 9
 
-- Code: lines
-- Figure: 
+- Code: lines 260-323 in 5_figures/water_temp_figures.R
+- Figure: atmos_figures/figure_4_noclouds.jpg
+- add in a, b, c and re-label ard,
 
-## Figure 10
+## Old Figure 10
 
-- Code: lines
-- Figure: 
+- Code: lines 191-245, 286-289 in 5_figures/water_temp_rf_figures_jwh.R
+- Figure: local_output/fig10_nhd_boxplots.jpg

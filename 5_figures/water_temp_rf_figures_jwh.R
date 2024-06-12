@@ -188,7 +188,7 @@ varimp_plot <- function(rfobj, var_names = NULL){
   plot_out
 }
 
-#' Ridge Plots comparing variable distributions across model training data
+#' Box Plots comparing variable distributions across model training data
 #' 
 #' @param train_data long format training data
 compare_distributions <- function(train_data, style = c("1","2")){
