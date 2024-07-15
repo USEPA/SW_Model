@@ -1,4 +1,4 @@
-# Water Temp Figures: RF variable importand and Partial Dependency Plots
+# Water Temp Figures: RF variable import and and Partial Dependency Plots
 # JWH
 library(dplyr)
 library(randomForest)
@@ -192,6 +192,7 @@ varimp_plot <- function(rfobj, var_names = NULL){
 #' 
 #' @param train_data long format training data
 compare_distributions <- function(train_data, style = c("1","2")){
+  browser()
   style <- match.arg(style)
   #browser()
   #Should I do distributions of all data (e.g. multiple temp observations, but static lake obs (e.g. elev, lat, etc.)

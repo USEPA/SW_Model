@@ -9,6 +9,31 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## RF Model 1: Landsat(LakeCloudFree)/ARDt
+
+- Training data: data/ard_training.feather
+- Validation data: data/all_insitu_2007_2022.feather - "Validation" from the `subset` column.
+- Code: Lines 32-43 in 3_ard_model/water_temp.R and predictions lines 220-225
+- Predictions: atmos_outputs/ard_2022_preds.feather 
+- Model rda: 3_ard_model/ard_model.rda
+
+## RF Model 2: Landsat(SceneCloudFree)/ARDc
+
+- Training data: data/ard_training_no_clouds.feather
+- Validation data: data/all_insitu_2007_2022.feather - "Validation" from the `subset` column.
+- Code: Lines 31-42 in 3_ard_model/water_temp_no_clouds.R and predictions lines 196-205
+- Predictions: atmos_outputs/ard_2022_preds.feather 
+- Model rda: 3_ard_model/ard_no_clouds_model.rda
+
+## RF Model 3: In Situ
+
+- Training data: data/all_insitu_2007_2022.feather - "Training" from the `subset` column.
+- Validation data: data/all_insitu_2007_2022.feather - "Validation" from the `subset` column.
+- Code: Lines 31-45 in 4_insitu_model/water_temp_insitu.R and predictions lines 188-196
+- Predictions: atmos_outputs/insitu_2022_preds.feather 
+- Model rda: 4_insitu_model/insitu_model.rda
+
+
 ## Table 1
 
 - 3_ard_model/water_temp.R for Landsat(LakeCloudFree)
@@ -53,7 +78,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Figure 7
 
-- Code: lines 131-156, 276-279 in 5_figures/water_temp_rf_figures_jwh.R
+- Code: lines 17-35, 131-156, 276-279 in 5_figures/water_temp_rf_figures_jwh.R
+- Code for partial plot data: Lines 53-147 in 3_ard_model/water_temp.R and lines 51-94 in 4_insitu_model/water_temp_insitu.R
 - Figure: local_output/figure_7_partial_plots.jpg
 - Please include (a), (b), ( c), (d)…(h). Please rename ARDt and ARDc. Please make y-axis label match wording in text and Figure 1. Please fix Lat & Long x-axis labels. Please order the figure with a=avg temp; b=30-day; c=day of year; d=longitude; e=latitude; f=area; g=shoreline; and h=elevation to fit the text order.
 
@@ -62,6 +88,7 @@ knitr::opts_chunk$set(echo = TRUE)
 - Code: lines 218-258 in 5_figures/water_temp_figures.R
 - Figure: atmos_figures/figure_3_noclouds.jpg
 - Add stats and n (which stats?)
+  - MAE, Bias, additive, multiplicative - ask wilson.
 
 ## Figure 9
 
