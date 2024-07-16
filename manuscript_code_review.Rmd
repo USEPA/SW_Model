@@ -63,6 +63,7 @@ knitr::opts_chunk$set(echo = TRUE)
 - Code: lines 191-245, 281-284 in 5_figures/water_temp_rf_figures_jwh.R
 - Figure: local_outputs/fig4_boxplots.jpg
 - Need to work on this.  Looks awful with new axis labels
+- All edits made, added into manuscript and caption updated to reflect LCF and SCF.
 
 ## Figure 5
 

@@ -10,6 +10,9 @@ library(tidyr)
 library(sf)
 library(lubridate)
 
+#Notes:
+#ARDt = LakeCloudFree
+#ARDc = SceneCloudFree
 
 # RDAs were saved on prior runs of all models, run by jwh 2023-05-19.
 # Loaded here for partial dep and var imp plots

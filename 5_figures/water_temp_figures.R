@@ -1,6 +1,10 @@
 #Creating figures for the output of the air temp to surface water temp 
 #random forest model
 
+#Notes:
+#ARDt = LakeCloudFree
+#ARDc = SceneCloudFree
+
 #Created by: Hannah Ferriby
 #Date updated: 2/13/2023
 
@@ -325,13 +329,15 @@ ggsave('atmos_figures/figure_4_noclouds.jpg', figure_4, height = 7, width = 6, u
 
 #2022 ARD and in situ prediction figure
 mean_day_temp_ard <- ard_2022 %>% group_by(date) %>% summarise(date = date,
-                                                               source = 'ARDt',
+                                                               #source = 'ARDt',
+                                                               source = 'Landsat(LakeCloudFree)',
                                                                conus_day_mean_temp = mean(rf_temp),
                                                                quant25 = quantile(rf_temp,0.25),
                                                                quant75 = quantile(rf_temp,0.75)) %>% unique()
 
 mean_day_temp_ard_noclouds <- ard_2022_noclouds %>% group_by(date) %>% summarise(date = date,
-                                                                                 source = 'ARDc',
+                                                                                 #source = 'ARDc',
+                                                                                 source = 'Landsat(SceneCloudFree)',
                                                                conus_day_mean_temp = mean(rf_temp),
                                                                quant25 = quantile(rf_temp,0.25),
                                                                quant75 = quantile(rf_temp,0.75)) %>% unique()
