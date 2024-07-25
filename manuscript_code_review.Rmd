@@ -70,12 +70,14 @@ knitr::opts_chunk$set(echo = TRUE)
 - Code: lines 387-403 in 5_figure/water_temp_figures.R
 - Figure: figure_5alt_noclouds.jpg
 - Make sure ARDc and ARDt renamed
+- I have added new figure to paper
 
 ## Figure 6
 
 - Code: lines 169-189, 248-266 in 5_figures/water_temp_rf_figures_jwh.R
 - Figure: local_outputs/fig_6_var_imp.jpg
 - label a, b, c, and have y-axis text match figure 1
+- Maybe add name to (a), (b), and (c) and bump up 
 
 ## Figure 7
 
@@ -90,12 +92,20 @@ knitr::opts_chunk$set(echo = TRUE)
 - Figure: atmos_figures/figure_3_noclouds.jpg
 - Add stats and n (which stats?)
   - MAE, Bias, additive, multiplicative - ask wilson.
+- Edits started:
+  - lcf and scf added
+  - waiting on guidance for which stats
+  - updated to output as "figure_8..." in the filename
 
 ## Figure 9
 
 - Code: lines 260-323 in 5_figures/water_temp_figures.R
 - Figure: atmos_figures/figure_4_noclouds.jpg
 - add in a, b, c and re-label ard,
+- Edits started:
+  - lcf and scf added
+  - updated to output as "figure_9..." in the filename
+
 
 ## Old Figure 10
 
