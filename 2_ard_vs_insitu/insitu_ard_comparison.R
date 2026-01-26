@@ -83,7 +83,7 @@ plot_data %>%
                 fill = NA, label.color = NA) +
   facet_wrap(~facets) +
   xlab('In situ Temperature (°C)') +
-  ylab('ARD Pixel Temperature (°C)') +
+  ylab('Landsat Pixel Temperature (°C)') +
   coord_cartesian(xlim = c(0,45), ylim = c(0,45),expand = F,default = FALSE,clip = "on") +
   scale_color_viridis_c(name = 'Percent of cloud\ncover in scene', limits = c(0,100), breaks = seq(0,100,25)) + 
   scale_fill_viridis_c(name = 'Percent of cloud\ncover in scene', limits = c(0,100), breaks = seq(0,100,25)) +

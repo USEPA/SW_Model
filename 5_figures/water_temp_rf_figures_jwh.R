@@ -126,7 +126,13 @@ training_long <- training |>
                                       "Day of Year", "Elevation (m)", 
                                       "Surface area (km²)", "Shoreline length (km)",
                                       "Water temperature (°C)")))
-  
+
+training_summary <- training_long |> 
+  group_by(model, variable) |>
+  summarize(min = min(values),
+            median = median(values),
+            mean = mean(values),
+            max = max(values))  
 
 nhd_predictors <- read_feather("data/nhd_predictors.feather") %>%
   mutate(date = today(), model = "nhd",
@@ -320,7 +326,7 @@ compare_distributions <- function(train_data, style = c("1","2")){
 variable_names <- data.frame(variable = row.names(insitu_rf$importance), 
                              labels = c("Latitude (m)", "Longitude (m)", 
                                         "Day of year", "Elevation (m)", 
-                                        "Saily air temp. (°C)", 
+                                        "Daily air temp. (°C)", 
                                         "Rolling 30-day air temp. (°C)", 
                                         "Surface area (km²)", 
                                         "Shoreline length (km)"))

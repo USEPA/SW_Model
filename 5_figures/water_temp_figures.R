@@ -237,7 +237,8 @@ ggplot(ard_validation) +
   theme_bw() +
   theme(axis.title.x = element_text(size = 7),
         axis.title.y = element_text(size = 7)) +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75) -> figure_8_ard
+  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75) +
+  annotate("text", x = 14, y = 34, label = paste0("n = ", lcf_n)) -> figure_8_ard
 
 scf_n <- nrow(ard_validation_noclouds)
 scf_table1_r2 <- 0.91
@@ -255,7 +256,8 @@ ggplot(ard_validation_noclouds) +
   theme_bw() +
   theme(axis.title.x = element_text(size = 7),
         axis.title.y = element_text(size = 7)) +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75) -> figure_8_ard_noclouds
+  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75) +
+  annotate("text", x = 14, y = 34, label = paste0("n = ", scf_n)) -> figure_8_ard_noclouds
 
 insitu_n <- nrow(insitu_validation)
 insitu_table1_r2 <- 0.98
@@ -273,18 +275,19 @@ ggplot(insitu_validation) +
   theme_bw() +
   theme(axis.title.x = element_text(size = 7),
         axis.title.y = element_text(size = 7)) +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75) -> figure_8_insitu
+  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75) +
+  annotate("text", x = 14, y = 34, label = paste0("n = ", insitu_n)) -> figure_8_insitu
 
 ggarrange(figure_8_ard,
           figure_8_ard_noclouds,
           figure_8_insitu,
           ncol = 3,
           nrow = 1,
-          labels = letters[1:3],
+          labels = c("(a)", "(b)", "(c)"),
           label.x = 0.25,
           label.y = 0.97) -> figure_8
 
-ggsave('atmos_figures/figure_8_noclouds.jpg', figure_3, height = 4, width = 6.5, units = 'in', dpi = 600, bg = 'white')
+ggsave('atmos_figures/figure_8_noclouds.jpg', figure_8, height = 4, width = 6.5, units = 'in', dpi = 600, bg = 'white')
 
 #Spatial Temperature Error figure CONUS
 # loc_insitu <- st_as_sf(insitu_validation, coords = c("LONG", "LAT"), crs = st_crs(lakes), remove = F)
