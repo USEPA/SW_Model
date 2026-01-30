@@ -93,7 +93,7 @@ pp_data <- pp_data1 %>%
                                       "Day of Year", "Elevation (m)", 
                                       "Lake area (km²)", "Lake shoreline length (km)")))
 
-#save(pp_data, file = "3_ard_model/pp_data_no_cloud.rda")
+save(pp_data, file = "3_ard_model/pp_data_no_cloud.rda")
 save(rf_model, file = "3_ard_model/ard_no_clouds_model.rda")
 
 partial_plot <- function(partial_data){

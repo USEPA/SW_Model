@@ -48,9 +48,9 @@ all_partial <- bind_rows(ard_partial, ard_nc_partial, insitu_parital) |>
                               variable == "30-day avg. temperature (°C)" ~
                                 "Rolling 30-day air temp. (°C)",
                               variable == "Longitude (m)" ~
-                                "Longitude (m)",
+                                "Easting (m)",
                               variable == "Latitude (m)" ~
-                                "Latitude (m)",
+                                "Northing (m)",
                               variable == "Day of Year" ~
                                 "Day of year",
                               variable == "Lake area (km²)" ~
@@ -83,8 +83,8 @@ training_quantiles <- training |>
   group_by(model) |>
   reframe("Avg. temperature" = quantile(daily_atemp, probs),
          "30-day avg. temperature" = quantile(mean_30day, probs),
-         "Longitude" = quantile(LONG, probs), 
-         "Latitude" = quantile(LAT, probs),
+         "Easting" = quantile(LONG, probs), 
+         "Northing" = quantile(LAT, probs),
          "Date" = quantile(day_of_year, probs), 
          "Elevation" = quantile(ElevWs, probs), 
          "Lake area" = quantile(lake_sa, probs), 
@@ -92,23 +92,21 @@ training_quantiles <- training |>
   ungroup() |>
   pivot_longer(cols = 2:9, names_to = "variable", values_to = "x") |>
   mutate(variable = factor(variable, levels = c("Avg. temperature", "30-day avg. temperature",
-                                                "Longitude", "Latitude",
+                                                "Easting", "Northing",
                                                 'Date', 
                                                 "Elevation", 
                                                 "Lake area", 
                                                 "Lake shoreline length"),
                            labels = c("Daily air temp. (°C)", "Rolling 30-day air temp. (°C)",
-                                      "Longitude (m)", "Latitude (m)",
+                                      "Easting (m)", "Northing (m)",
                                       "Day of year", "Elevation (m)", 
                                       "Surface area (km²)", "Shoreline length (km)"))) |>
   
   mutate(y = NA_real_) |>
   select(y, x, variable, model)
-  
 
 training_long <- training |>
   st_as_sf(coords = c("LONG", "LAT"), crs = st_crs(lakes)) %>%
-  #st_transform(crs = 4326) %>% 
   mutate(long_alb = st_coordinates(.)[,1],
          lat_alb = st_coordinates(.)[,2]) |>
   st_drop_geometry() |>
@@ -122,7 +120,7 @@ training_long <- training |>
                                                 "lake_sa", 
                                                 "lake_shoreline","temperature"),
                            labels = c("Daily air temp. (°C)", "Rolling 30-day air temp. (°C)",
-                                      "Longitude (m)", "Latitude (m)",
+                                      "Easting (m)", "Northing (m)",
                                       "Day of Year", "Elevation (m)", 
                                       "Surface area (km²)", "Shoreline length (km)",
                                       "Water temperature (°C)")))
@@ -147,14 +145,14 @@ nhd_predictors <- read_feather("data/nhd_predictors.feather") %>%
                                                 "lake_sa", 
                                                 "lake_shoreline","temperature"),
                            labels = c("Daily air temp. (°C)", "Rolling 30-day air temp. (°C)",
-                                      "Longitude (m)", "Latitude (m)",
+                                      "Easting (m)", "Northing (m)",
                                       "Day of year", "Elevation (m)", 
                                       "Surface area (km²)", "Shoreline length (km)",
                                       "Water temperature (°C)"))) %>%
   bind_rows(training_long) %>%
   select(-date) %>%
   unique() %>%
-  filter(variable %in% c("Longitude (m)", "Latitude (m)",
+  filter(variable %in% c("Easting (m)", "Northing (m)",
                          "Elevation (m)", "Surface area (km²)", 
                          "Shoreline length (km)")) %>%
   mutate(model = factor(model, levels = c("nhd", "ARDc", "ARDt", 
@@ -173,9 +171,9 @@ partial_plot <- function(partial_data, quant_data){
                                              "(b)",
                                            variable == "Day of year" ~
                                              "(c)",
-                                           variable == "Longitude (m)" ~
+                                           variable == "Easting (m)" ~
                                              "(d)",
-                                           variable == "Latitude (m)" ~
+                                           variable == "Northing (m)" ~
                                              "(e)",
                                            variable == "Surface area (km²)" ~
                                              "(f)",
@@ -193,9 +191,9 @@ partial_plot <- function(partial_data, quant_data){
                                                     "(b)",
                                                   variable == "Day of year" ~
                                                     "(c)",
-                                                  variable == "Longitude (m)" ~
+                                                  variable == "Easting (m)" ~
                                                     "(d)",
-                                                  variable == "Latitude (m)" ~
+                                                  variable == "Northing (m)" ~
                                                     "(e)",
                                                   variable == "Surface area (km²)" ~
                                                     "(f)",
@@ -276,7 +274,7 @@ compare_distributions <- function(train_data, style = c("1","2")){
   train_data_split <- train_data |>
     filter(!(variable == "lake_sa" & values > 250)) |>
     filter(!(variable == "lake_shoreline" & values > 250)) |>
-    filter(!variable %in% c("Longitude", "Latitude")) |>
+    filter(!variable %in% c("Easting", "Northing")) |>
     group_by(comid, model, variable) |>
     #reframe(values = unique(values)) |>
     ungroup() |>
@@ -324,7 +322,7 @@ compare_distributions <- function(train_data, style = c("1","2")){
 ###Variable importance figure
 ###Names are not getting pulled in corretly...  Wrong order.  Probably need factor with names from model and these as labels.sad
 variable_names <- data.frame(variable = row.names(insitu_rf$importance), 
-                             labels = c("Latitude (m)", "Longitude (m)", 
+                             labels = c("Northing (m)", "Easting (m)", 
                                         "Day of year", "Elevation (m)", 
                                         "Daily air temp. (°C)", 
                                         "Rolling 30-day air temp. (°C)", 
