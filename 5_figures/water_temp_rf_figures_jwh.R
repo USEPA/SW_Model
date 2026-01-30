@@ -288,7 +288,8 @@ compare_distributions <- function(train_data, style = c("1","2")){
         labs(x = label) +
         scale_color_manual(name = ' ',values = c('gray75', 'gray55' ,'black', 'darkblue'), 
                            guide = guide_legend(override.aes = list(linetype = c(1,1,1,1),
-                                                                    shape = c(NA,NA,NA,NA))))
+                                                                    shape = c(NA,NA,NA,NA)))) +
+        theme(axis.title.x = element_text(vjust = -1))
     }
   } else if(style == "2"){
     plot_it <- function(x){
