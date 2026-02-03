@@ -381,7 +381,84 @@ ggsave('local_outputs/fig10_nhd_boxplots.jpg', nhd_combo_dist,  height = 10.5, w
 
 
 # Moved Figure 2 code here from 2_ard_vs_insitu/insitu_ard_comparison
+conus_lakes <- read_sf("data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp"); summary(conus_lakes)
 
+dist_to_shore <- read_feather('data/insitu_data_dist_shore.feather'); summary(dist_to_shore)
+
+# ard_points_nla_nwis <- read_csv('data/ard_points_nla_nwis.csv'); summary(ard_points_nla_nwis) # This is the same as ard_insitu_matchup but includes missing values and excludes ard metadata 
+
+ard_insitu_matchup <- read_feather('data/ard_insitu_matchup_metadata.feather'); summary(ard_insitu_matchup)
+
+# Join data ----
+
+ard_insitu_matchup %>% left_join(dist_to_shore) %>%
+  filter(
+    dist_shore_m > 180,
+    !is.na(extracted_temp),
+    depth <= 2
+  ) %>%  mutate(
+    ard_temp = (extracted_temp*0.00341802 + 149 - 273.15),
+    filter_25 = ifelse(cloud_cover < 25 & cloud_shadow < 25, ard_temp, NA),
+    filter_10 = ifelse(cloud_cover < 10 & cloud_shadow < 10, ard_temp, NA),
+    filter_01 = ifelse(cloud_cover < 1 & cloud_shadow < 1, ard_temp, NA)
+  ) %>% 
+  pivot_longer(cols = c(ard_temp, filter_25, filter_10, filter_01),names_to = 'facets', values_to = 'ard_temp') %>%
+  mutate(
+    labels = ifelse(facets == 'ard_temp','a',
+                    ifelse(facets == 'filter_25','b',
+                           ifelse(facets == 'filter_10','c', 'd'))),
+    facets = factor(facets, levels = c('ard_temp', 'filter_25', 'filter_10', 'filter_01'), 
+                    labels = c('All data','< 25% each cloud cover and shadow',
+                               '< 10% each cloud cover and shadow','< 1% each cloud cover and shadow'),
+                    ordered = T))%>%
+  filter(ard_temp >= 0, !is.na(ard_temp)) -> plot_data
+
+plot_data %>% 
+  group_by(facets) %>%
+  mutate(error = ard_temp-insitu_temp,
+         abs_error = abs(error),
+         percent_abs_error = abs(error)/insitu_temp,
+         squared_error = error^2,
+         squares = (insitu_temp - mean(insitu_temp))^2) %>%
+  summarize(n = sum(!is.na(ard_temp)),
+            MAE = mean(abs_error),
+            MAPE = mean(percent_abs_error),
+            bias = mean(error)) %>%
+  # R2 = 1 - sum(squared_error)/sum(squares)) %>%
+  pivot_longer(cols = c(n,MAE,MAPE,bias
+                        # ,R2
+  ),names_to = 'summary_stats', values_to = 'stats') %>%
+  # mutate(summary_stats = ifelse(summary_stats == 'R2', 'R<sup>2</sup>',summary_stats)) %>%
+  distinct() %>%
+  mutate(stats = str_c(summary_stats, ' = ', round(stats, digits = 2))) %>%
+  pivot_wider(names_from = 'summary_stats', values_from = 'stats') %>% 
+  unite(n,MAE,MAPE,bias,
+        # `R<sup>2</sup>`, 
+        sep = '<br>', col = 'stats') %>%
+  mutate(stats = str_c("<span style='font-size:8pt'>",stats,"</span>")) %>% # Apply HTML formatting
+  right_join(plot_data) %>%
+  arrange(cloud_cover) %>%
+  ggplot +
+  geom_point(aes(x=insitu_temp, y= ard_temp, color = cloud_cover, fill = cloud_cover), size = 1.5, shape = 21, alpha = 0.8) +
+  geom_abline(slope = 1, intercept = 0, color = "black", lwd = 0.5) +
+  geom_text(aes(x = 2, y = 41, label = labels, hjust = 0, vjust = 0), size = 5, color = 'black') +
+  geom_richtext(aes(x = 2, y = 40, label = stats, hjust = 0, vjust = 1),
+                label.padding = unit(rep(0,4), "lines"),
+                fill = NA, label.color = NA) +
+  facet_wrap(~facets) +
+  xlab('In situ Temperature (°C)') +
+  ylab('Landsat Pixel Temperature (°C)') +
+  coord_cartesian(xlim = c(0,45), ylim = c(0,45),expand = F,default = FALSE,clip = "on") +
+  scale_color_viridis_c(name = 'Percent of cloud\ncover in scene', limits = c(0,100), breaks = seq(0,100,25)) + 
+  scale_fill_viridis_c(name = 'Percent of cloud\ncover in scene', limits = c(0,100), breaks = seq(0,100,25)) +
+  theme_bw() +
+  theme(text = element_text(size = 10),
+        strip.background = element_rect(fill = 'white')) -> figure_2_compare
+
+
+ggsave('manuscript_figures/figure_2.tiff', figure_2_compare,
+       height = 4.75, width = 5.75, units = 'in', dpi = 600, bg = 'white',
+       compression = "lzw")
 
 
 ################################################################################
