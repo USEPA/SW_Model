@@ -17,16 +17,19 @@ library(ggpubr)
 library(lubridate)
 library(grid)
 library(arrow)
+library(egg)
+
+#setwd('/./work/HAB4CAST/max_beal/SW_model')
 
 lakes <- st_read('data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp')
 
 ard_oob <- read_feather('atmos_outputs/ard_oob_preds.feather') 
-ard_validation <- read_feather('atmos_outputs/ard_validation.feather')
-ard_2022 <- read_feather('atmos_outputs/ard_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
+ard_validation <- read_csv('atmos_outputs/ard_validation.csv')
+ard_2022 <- read_csv('atmos_outputs/ard_2022_preds.csv') %>% mutate(type = as.factor('Temperature Point'))
 
 ard_oob_noclouds <- read_feather('atmos_outputs/ard_oob_preds_noclouds.feather') 
 ard_validation_noclouds <- read_feather('atmos_outputs/ard_validation_noclouds.feather')
-ard_2022_noclouds <- read_feather('atmos_outputs/ard_2022_preds_noclouds.feather') %>% mutate(type = as.factor('Temperature Point'))
+ard_2022_noclouds <- read_csv('atmos_outputs/ard_2022_preds_noclouds.csv') %>% mutate(type = as.factor('Temperature Point'))
 
 insitu_oob <- read_feather('atmos_outputs/insitu_oob_preds.feather')
 insitu_validation <- read_feather('atmos_outputs/insitu_validation.feather')
@@ -36,6 +39,12 @@ insitu_all <- read_feather('data/all_insitu_2007_2022.feather')
 in_situ_train <- insitu_all %>% filter(subset == 'Training')
 in_situ_valid <- insitu_all %>% filter(subset =='Validation')
 
+
+
+#summary statistics
+summary(insitu_all$TEMPERATURE)
+
+
 #Histogram of day
 ggplot(ard_oob, aes(x = day_of_year)) +
   geom_histogram(bins=20, center = 10, color = 'black', fill = 'gray') +
@@ -44,7 +53,7 @@ ggplot(ard_oob, aes(x = day_of_year)) +
   coord_cartesian(expand = F) +
   xlab('Numeric Day of Year') +
   ylab('Frequency') +
-  ggtitle(expression(bold('ARD'['t']))) +
+  ggtitle(expression(bold('Landsat(LCF)'))) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5, size = 8),
         axis.title.x = element_text(size = 8),
@@ -57,7 +66,7 @@ ggplot(ard_oob_noclouds, aes(x = day_of_year)) +
   coord_cartesian(expand = F) +
   xlab('Numeric Day of Year') +
   ylab('Frequency') +
-  ggtitle(expression(bold('ARD'['c']))) +
+  ggtitle(expression(bold('Landsat(SCF)'))) +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5, size = 8),
         axis.title.x = element_text(size = 8),
@@ -154,22 +163,25 @@ ggarrange(figure_1_ard_day,
           figure_1_insitu_temp_valid,
           ncol = 4,
           nrow = 2,
-          labels = letters[1:8],
-          label.x = 0.35,
-          label.y = 0.9) -> figure_1
+          labels = letters[1:8]) -> figure_1
 
-ggsave('atmos_figures/figure_1_noclouds.jpg', figure_1, height = 6, width = 7, units = 'in', dpi = 600, bg = 'white')
+#Was causing issues
+# label.x = 0.35,
+# label.y = 0.9
+
+ggsave('atmos_figures/figure_1_noclouds.tiff', figure_1, height = 6, width = 7, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
 
 
-#Sample spatial density plot
+####Sample spatial density plot####
 not_conus <- c("VI","HI","AK","MP","PR","GU","AS")
 conus_bound <- st_read("data/cb_2019_us_state_500k/cb_2019_us_state_500k.shp") %>% filter(!STUSPS %in% not_conus) %>%
   st_transform(st_crs(lakes))
 
-comid_counts_ard <- ard_oob %>% count(COMID) %>% mutate(from = 'ARDt') %>% left_join(ard_oob) %>% select(!TEMPERATURE)
+comid_counts_ard <- ard_oob %>% count(COMID) %>% mutate(from = 'Landsat(LCF)') %>% left_join(ard_oob) %>% select(!TEMPERATURE)
 summary(comid_counts_ard)
 
-comid_counts_ard_noclouds <- ard_oob_noclouds %>% count(COMID) %>% mutate(from = 'ARDc') %>%
+comid_counts_ard_noclouds <- ard_oob_noclouds %>% count(COMID) %>% mutate(from = 'Landsat(SCF)') %>%
   left_join(ard_oob_noclouds) %>% select(!TEMPERATURE)
 summary(comid_counts_ard_noclouds)
 
@@ -183,6 +195,8 @@ summary(comid_counts_valid)
 
 comid_counts <- comid_counts_ard %>% rbind(comid_counts_ard_noclouds) %>% rbind(comid_counts_insitu) %>% rbind(comid_counts_valid)
 
+comid_counts$from = factor(comid_counts$from, levels = c('Landsat(LCF)', 'Landsat(SCF)', 'In situ Training', 'In situ Validation'), ordered = T,labels = c('Landsat(LCF)', 'Landsat(SCF)', 'In situ Training', 'In situ Validation'))
+
 ggplot()+
   geom_sf(data = conus_bound,fill = 'white', lwd = .25) +
   geom_point(data = arrange(comid_counts,n),
@@ -194,8 +208,7 @@ ggplot()+
   scale_color_gradientn(name = 'Number of\nTemperature\nObservations',
                         colors = brewer.pal(n = 9, name = 'BuPu')[3:9]
   ) +
-  facet_wrap(~factor(from, levels = c('ARDt', 'ARDc', 'In situ Training', 'In situ Validation'), ordered = T,
-                     labels = c('a.) Landsat(LakeCloudFree)', 'b.) Landsat(SceneCloudFree)', 'c.) In situ Training', 'd.) In situ Validation')),
+  facet_wrap(~from,
              ncol = 2, nrow = 2) +
   ylab('Latitude') +
   xlab('Longitude') +
@@ -210,31 +223,83 @@ ggplot()+
   annotation_north_arrow(style = north_arrow_minimal,
                          height = unit(0.7, "cm"),
                          pad_y = unit(1.5,'line'),
-                         data = tibble(from = 'In situ Validation')) -> figure_2
+                         data = tibble(from = 'In situ Validation'))-> figure_2
 
-ggsave('atmos_figures/figure_2_noclouds.jpg', figure_2, height = 5, width = 7, units = 'in', dpi = 600, bg = 'white')
+tag_facet2 <- function(p, open = "(", close = ")", tag_pool = letters, x = -Inf, y = Inf, 
+                       hjust = -0.5, vjust = 1.5, fontface = 2, family = "", ...) {
+  
+  gb <- ggplot_build(p)
+  lay <- gb$layout$layout
+  tags <- cbind(lay, label = paste0(open, tag_pool[lay$PANEL], close), x = x, y = y)
+  p + geom_text(data = tags, aes_string(x = "x", y = "y", label = "label"), ..., hjust = hjust, 
+                vjust = vjust, fontface = fontface, family = family, inherit.aes = FALSE)
+}
 
 
-#Validation vs Predicted temperatures graph
+
+figure_2 = tag_facet2(figure_2,size=3) 
+
+ggsave('atmos_figures/figure_2_noclouds.tiff', figure_2, height = 6, width = 8, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
+# Updated figure saves for manuscript as of 2026-02-03
+ggsave('manuscript_figures/figure_3.tiff', figure_2, height = 6, width = 8, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
+
+
+####Validation vs Predicted temperatures graph####
+
+#LCF validation
+ard_validation$error <- ard_validation$apply_rf - ard_validation$TEMPERATURE
+ard_validation$abs_error <- abs(ard_validation$apply_rf - ard_validation$TEMPERATURE)
+
+mae_applied <- mean(abs(ard_validation$apply_rf - ard_validation$TEMPERATURE), na.rm = T)
+bias_applied <- mean((ard_validation$apply_rf - ard_validation$TEMPERATURE), na.rm = T)
+
+rmse_applied = sqrt(mean((ard_validation$apply_rf - ard_validation$TEMPERATURE)^2))
+
+
 ggplot(ard_validation) +
   geom_point(aes(x=TEMPERATURE, y=apply_rf), color = 'gray50', fill = NA, size = 1, shape = 21) +
   xlab('In situ Validation Temperature (°C)') +
-  ylab('ARDt Predicted Temperature (°C)') +
+  ylab('Landsat(LCF) Predicted Temperature (°C)') +
   coord_cartesian(xlim = c(0,40), ylim = c(0,40),expand = F,default = FALSE,clip = "on") +
   theme_bw() +
   theme(axis.title.x = element_text(size = 7),
         axis.title.y = element_text(size = 7)) +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75) -> figure_3_ard
+  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75)+ 
+  annotate("text",x=11,y=35,label=paste0("MAE[applied]: ",as.character(round(mae_applied,2))),size=3.5,parse=TRUE)+ 
+  annotate("text",x=11,y=37,label=paste0("Bias[applied]: ",as.character(round(bias_applied,2))),size=3.5,parse=TRUE)+ 
+  annotate("text",x=11,y=39,label=paste0("RMSE[applied]: ",as.character(round(rmse_applied,2))),size=3.5,parse=TRUE) -> figure_3_ard
+
+
+#SCF Valdiation
+ard_validation_noclouds$error <- ard_validation_noclouds$apply_rf - ard_validation_noclouds$TEMPERATURE
+ard_validation_noclouds$abs_error <- abs(ard_validation_noclouds$apply_rf - ard_validation_noclouds$TEMPERATURE)
+
+mae_applied <- mean(abs(ard_validation_noclouds$apply_rf - ard_validation_noclouds$TEMPERATURE), na.rm = T)
+bias_applied <- mean((ard_validation_noclouds$apply_rf - ard_validation_noclouds$TEMPERATURE), na.rm = T)
+rmse_applied = sqrt(mean((ard_validation_noclouds$apply_rf - ard_validation_noclouds$TEMPERATURE)^2))
 
 ggplot(ard_validation_noclouds) +
   geom_point(aes(x=TEMPERATURE, y=apply_rf), color = 'gray50', fill = NA, size = 1, shape = 21) +
   xlab('In situ Validation Temperature (°C)') +
-  ylab('ARDc Predicted Temperature (°C)') +
+  ylab('Landsat(SCF) Predicted Temperature (°C)') +
   coord_cartesian(xlim = c(0,40), ylim = c(0,40),expand = F,default = FALSE,clip = "on") +
   theme_bw() +
   theme(axis.title.x = element_text(size = 7),
         axis.title.y = element_text(size = 7)) +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75) -> figure_3_ard_noclouds
+  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75)+ 
+  annotate("text",x=11,y=35,label=paste0("MAE[applied]: ",as.character(round(mae_applied,2))),size=3.5,parse=TRUE)+ 
+  annotate("text",x=11,y=37,label=paste0("Bias[applied]: ",as.character(round(bias_applied,2))),size=3.5,parse=TRUE)+ 
+  annotate("text",x=11,y=39,label=paste0("RMSE[applied]: ",as.character(round(rmse_applied,2))),size=3.5,parse=TRUE) -> figure_3_ard_noclouds
+
+#In situ
+insitu_validation$error <- insitu_validation$apply_rf - insitu_validation$TEMPERATURE
+insitu_validation$abs_error <- abs(insitu_validation$apply_rf - insitu_validation$TEMPERATURE)
+
+mae_applied <- mean(abs(insitu_validation$apply_rf - insitu_validation$TEMPERATURE), na.rm = T)
+bias_applied <- mean((insitu_validation$apply_rf - insitu_validation$TEMPERATURE), na.rm = T)
+rmse_applied = sqrt(mean((insitu_validation$apply_rf - insitu_validation$TEMPERATURE)^2))
 
 ggplot(insitu_validation) +
   geom_point(aes(x=TEMPERATURE, y=apply_rf), color = 'gray50', fill = NA, size = 1, shape = 21) +
@@ -244,25 +309,38 @@ ggplot(insitu_validation) +
   theme_bw() +
   theme(axis.title.x = element_text(size = 7),
         axis.title.y = element_text(size = 7)) +
-  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75) -> figure_3_insitu
+  geom_abline(slope = 1, intercept = 0, color = "black", linewidth = 0.75)+ 
+  annotate("text",x=11,y=35,label=paste0("MAE[applied]: ",as.character(round(mae_applied,2))),size=3.5,parse=TRUE)+ 
+  annotate("text",x=11,y=37,label=paste0("Bias[applied]: ",as.character(round(bias_applied,2))),size=3.5,parse=TRUE)+ 
+  annotate("text",x=11,y=39,label=paste0("RMSE[applied]: ",as.character(round(rmse_applied,2))),size=3.5,parse=TRUE) -> figure_3_insitu
 
 ggarrange(figure_3_ard,
           figure_3_ard_noclouds,
           figure_3_insitu,
           ncol = 3,
           nrow = 1,
-          labels = letters[1:3],
-          label.x = 0.25,
-          label.y = 0.97) -> figure_3
+          labels = letters[1:3]) -> figure_3
 
-ggsave('atmos_figures/figure_3_noclouds.jpg', figure_3, height = 4, width = 6.5, units = 'in', dpi = 600, bg = 'white')
+cor(ard_validation$TEMPERATURE,ard_validation$apply_rf)^2
+cor(ard_validation_noclouds$TEMPERATURE,ard_validation_noclouds$apply_rf)^2
+cor(insitu_validation$TEMPERATURE,insitu_validation$apply_rf)^2
+#Causing issues in ggarrange
+# ,
+# label.x = 0.25,
+# label.y = 0.97
+
+ggsave('atmos_figures/figure_3_noclouds.tiff', figure_3, height = 5, width = 8, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
+# Updated figure saves for manuscript as of 2026-02-03
+ggsave('manuscript_figures/figure_8.tiff', figure_3, height = 5, width = 8, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
 
 #Spatial Temperature Error figure CONUS
 # loc_insitu <- st_as_sf(insitu_validation, coords = c("LONG", "LAT"), crs = st_crs(lakes), remove = F)
 # loc_ard <- st_as_sf(ard_validation, coords = c("LONG", "LAT"), crs = st_crs(lakes), remove = F)
 
-ard_error <- ard_validation %>% mutate(from = 'ARDt')
-ard_error_noclouds <- ard_validation_noclouds %>% mutate(from = 'ARDc')
+ard_error <- ard_validation %>% mutate(from = 'Landsat(LCF)')
+ard_error_noclouds <- ard_validation_noclouds %>% mutate(from = 'Landsat(SCF)')
 insitu_error <- insitu_validation %>% mutate(from = 'In situ')
 
 all_error <- ard_error %>% rbind(ard_error_noclouds) %>% rbind(insitu_error)
@@ -293,6 +371,11 @@ all_error %>%
 col <- diverging_hcl(n = 7, h = c(260, 0), c = 80, l = c(30, 90), power = 1.5)
 col <- col[length(col):1]
 
+
+error_circles$from = factor(error_circles$from, levels = c('Landsat(LCF)', 'Landsat(SCF)', 'In situ'), ordered = T,
+                            labels = c('Landsat(LCF)', 'Landsat(SCF)', 'In situ'))
+
+
 ggplot()+
   geom_sf(data = conus_bound,fill = 'white', lwd = .25) +
   geom_point(data = arrange(error_circles, error_class),
@@ -306,9 +389,7 @@ ggplot()+
                          height = unit(0.75, "cm"),
                          pad_y = unit(1.5,'line'),
                          data = tibble(from = 'In situ')) +
-  facet_wrap(~factor(from, levels = c('ARDt', 'ARDc', 'In situ'), ordered = T,
-                     labels = c('ARDt', 'ARDc', 'In situ')),
-             ncol = 1, nrow = 3)+
+  facet_wrap(~from,ncol = 1, nrow = 3)+
   ylab('Latitude') +
   xlab('Longitude') +
   theme_bw() +
@@ -319,19 +400,27 @@ ggplot()+
         # axis.title.y = element_blank(),
         strip.background = element_rect(fill = 'white')) +
   guides(col = guide_legend(ncol = 1, byrow = T)) -> figure_4
+
+figure_4 = tag_facet2(figure_4,size=3) 
   
-ggsave('atmos_figures/figure_4_noclouds.jpg', figure_4, height = 7, width = 6, units = 'in', dpi = 600, bg = 'white')
+ggsave('atmos_figures/figure_4_noclouds.tiff', figure_4, height = 7, width = 6, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
+# Updated figure saves for manuscript as of 2026-02-03
+ggsave('manuscript_figures/figure_9.tiff', figure_4, height = 7, width = 6, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
+
+####2022 ARD and in situ prediction figure####
 
 
-#2022 ARD and in situ prediction figure
+
 mean_day_temp_ard <- ard_2022 %>% group_by(date) %>% summarise(date = date,
-                                                               source = 'ARDt',
+                                                               source = 'Landsat(LCF)',
                                                                conus_day_mean_temp = mean(rf_temp),
                                                                quant25 = quantile(rf_temp,0.25),
                                                                quant75 = quantile(rf_temp,0.75)) %>% unique()
 
 mean_day_temp_ard_noclouds <- ard_2022_noclouds %>% group_by(date) %>% summarise(date = date,
-                                                                                 source = 'ARDc',
+                                                                                 source = 'Landsat(SCF)',
                                                                conus_day_mean_temp = mean(rf_temp),
                                                                quant25 = quantile(rf_temp,0.25),
                                                                quant75 = quantile(rf_temp,0.75)) %>% unique()
@@ -381,7 +470,8 @@ ard_2022 %>% mutate(rf_temp = rf_temp,
     strip.background = element_rect(fill = 'white')) -> figure_5
 
 
-ggsave('atmos_figures/figure_5_noclouds.jpg', figure_5, height = 4, width = 7.5, units = 'in', dpi = 600, bg = 'white')
+ggsave('atmos_figures/figure_5_noclouds.tiff', figure_5, height = 4, width = 7.5, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
 
 
 mean_day_temp %>%# slice(c(1:365,(1600160-365):1600160)) %>%
@@ -400,7 +490,11 @@ mean_day_temp %>%# slice(c(1:365,(1600160-365):1600160)) %>%
     strip.text.x = element_text(
       size = 12, face = "bold")) -> figure_5alt
 
-ggsave('atmos_figures/figure_5alt_noclouds.jpg', figure_5alt, height = 4, width = 5, units = 'in', dpi = 600, bg = 'white')
+ggsave('atmos_figures/figure_5alt_noclouds.tiff', figure_5alt, height = 4, width = 5, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
+# Updated figure saves for manuscript as of 2026-02-03
+ggsave('manuscript_figures/figure_5.tiff', figure_5alt, height = 4, width = 5, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
 
 
 

@@ -4,7 +4,10 @@
 #Outputs predicted water temperature
 
 #Written by Hannah Ferriby
-#Date updated 3/28/2022
+#Date updated 12/15/2022
+
+#wd <- "C:/Users/hferriby/OneDrive - Environmental Protection Agency (EPA)/Profile/Documents/Air_to_Water_Model"
+#setwd(wd)
 
 #Load libraries and set seed
 library(tidyverse)
@@ -15,6 +18,8 @@ library(arrow)
 library(ggplot2)
 set.seed(42)
 
+#setwd('/./work/HAB4CAST/SW_model')
+
 #Data Input ----
 #Load in lake shapefiles, lake morpho data, PRISM, ice presence, and ARD water temp data
 lakes <- st_read("data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp")
@@ -22,9 +27,14 @@ lakes <- st_read("data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_20
 
 #Read in the insitu data
 in_situ_all <- read_feather("data/all_insitu_2007_2022.feather")
+in_situ_all$COMID %>% unique() %>% length(
+)
+
 
 training <- in_situ_all %>% filter(subset == 'Training')
 validation <- in_situ_all %>% filter(subset == 'Validation')
+
+training = training %>% group_by(COMID,date) %>% summarise(across(everything(), mean, na.rm = TRUE))
 
 predict_2022 <- read_feather("data/prediction_2022.feather")
 
@@ -37,7 +47,7 @@ formula <- TEMPERATURE ~ LAT + LONG + day_of_year + ElevWs + daily_atemp + mean_
 #"predicted" output of the randomForest() function is the oob predictions
 rf_model <- randomForest(formula,
                          data = training,
-                         ntree = 100, #Change to 100 for official runs
+                         ntree = 100,
                          importance = T,
                          keep.inbag = T,
                          keep.forest = T,
@@ -117,48 +127,47 @@ partial_plot <- function(partial_data){
 
 pp_fig <- partial_plot(pp_data)
 
-ggsave('local_outputs/insitu_partial_plot.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
+ggsave('atmos_outputs/insitu_partial_plot.jpg', pp_fig,  height = 9, width = 6, units = 'in', dpi = 600, bg = 'white')
 
 #OOB Predictions and metrics ----
-#Function for getting all trees
 get_oob_predictions <- function(rf_obj, newdata){
   if(!"inbag" %in% names(rf_obj)){stop("The in bag matrix is not present.  Try re-running random forest with keep.inbag = T.")}
+  rf_pred <- predict(rf_obj, newdata = newdata, predict.all = TRUE)
   rf_inbag <- rf_obj$inbag
   rf_inbag[rf_inbag != 0] <- NA
   rf_pred$individual + rf_inbag
 } 
 
-#Can access all trees, but we don't need to. Including this in case it's helpful
-#down the line. The randomForest function provides everything we need for 
-#calculating metrics, but if we need to look at individual trees for any reason
-#this oob_matrix will be needed
+
 oob_matrix <- get_oob_predictions(rf_model, newdata = training) %>%
   data.frame() %>% mutate(TEMPERATURE = training$TEMPERATURE)
 
-all_output <- oob_matrix %>% mutate(oob_pred = rf_model$predicted) %>%
-  select(TEMPERATURE, oob_pred) %>% mutate(COMID = training$COMID,
-                                            date = training$date,
-                                            inbag_pred = rf_pred$aggregate,
-                                            Lat = training$LAT,
-                                            Long = training$LONG,
-                                            day_of_year = yday(date))
+all_output <- oob_matrix %>% mutate(oob_pred = rf_model$predicted,
+                                    rmse = apply(oob_matrix, 1, 
+                                                 function(x) sqrt(mean((x[1:(length(x))]-x[length(x)])^2, 
+                                                                       na.rm =T))),
+                                    mdev = apply(oob_matrix, 1, 
+                                                 function(x) mean(x[1:(length(x)-1)]-x[length(x)],
+                                                                  na.rm = TRUE))) %>%
+  select(TEMPERATURE, oob_pred, rmse, mdev) %>% mutate(COMID = training$COMID,
+                                                  date = training$date,
+                                                  inbag_pred = rf_pred$aggregate,
+                                                  Lat = training$LAT,
+                                                  Long = training$LONG,
+                                                  day_of_year = yday(date))
 
 summary(all_output$oob_pred)
 summary(training$TEMPERATURE)
 
 #Export csv for figures
-write_feather(all_output, 'local_outputs/insitu_oob_preds.feather', compression = 'zstd', compression_level = 22)
+write_feather(all_output, 'atmos_outputs/insitu_oob_preds.feather', compression = 'zstd', compression_level = 22)
 
-
-#randomForest function provides R2, MSE, and OOB predictions
 r2 <- mean(rf_model$rsq, na.rm = T)
 print(paste0('R2: ', round(r2, 4)))
-
 #Chose this rmse calculation because it keeps the tree integrity/separation longest
 rmse_rfModel <- mean(sqrt(rf_model$mse), na.rm = T) #Per tree
 print(paste0('RMSE: ', round(rmse_rfModel, 4)))
 
-#randomForest $predicted value is the OOB predictions (see documentation)
 bias <- mean((rf_model$predicted - training$TEMPERATURE), na.rm = T)
 print(paste0('Bias: ', round(bias, 4)))
 
@@ -182,7 +191,7 @@ bias_applied <- mean((validation$apply_rf - validation$TEMPERATURE), na.rm = T)
 print(paste0('Bias Validation: ', round(bias_applied, 4)))
 
 #Export csv for figures
-write_feather(validation, 'local_outputs/insitu_validation.feather', compression = 'zstd', compression_level = 22)
+write_feather(validation, 'atmos_outputs/insitu_validation.feather', compression = 'zstd', compression_level = 22)
 
 
 #Predict for all of 2022----
@@ -193,7 +202,7 @@ predict_2022$rf_temp <- predict(rf_model,
 predict_for_csv <- predict_2022 %>% select(COMID, date, rf_temp)
 
 #Export csv for figures
-write_feather(predict_for_csv, 'local_outputs/insitu_2022_preds.feather', compression = 'zstd', compression_level = 22)
+write_feather(predict_for_csv, 'atmos_outputs/insitu_2022_preds.feather', compression = 'zstd', compression_level = 22)
 
 
 
@@ -214,7 +223,7 @@ inla_2016_2022$rf_temp <- predict(rf_model,
 
 wtemp_inla_forcsv <- inla_2016_2022 %>% select(COMID, date, rf_temp)
 
-write_feather(wtemp_inla_forcsv, 'local_outputs/rf_pred_temp_2016_2022_for_inla.feather', compression = 'zstd', compression_level = 22)
+write_feather(wtemp_inla_forcsv, 'atmos_outputs/rf_pred_temp_2016_2022_for_inla.feather', compression = 'zstd', compression_level = 22)
 
 
 

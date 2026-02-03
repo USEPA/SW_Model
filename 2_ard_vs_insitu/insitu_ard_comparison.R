@@ -9,7 +9,8 @@ rm(list = ls(all = T))
 
 # Load libraries ----
 library(tidyverse)
-library(richtext)
+#library(richtext) jwh removed - couldn't find this package anywhere!
+library(ggtext) #jwh added - geom for richtext included here.
 library(sf)
 library(lubridate)
 library(arrow)
@@ -82,13 +83,14 @@ plot_data %>%
                 fill = NA, label.color = NA) +
   facet_wrap(~facets) +
   xlab('In situ Temperature (°C)') +
-  ylab('ARD Pixel Temperature (°C)') +
+  ylab('Landsat Pixel Temperature (°C)') +
   coord_cartesian(xlim = c(0,45), ylim = c(0,45),expand = F,default = FALSE,clip = "on") +
   scale_color_viridis_c(name = 'Percent of cloud\ncover in scene', limits = c(0,100), breaks = seq(0,100,25)) + 
   scale_fill_viridis_c(name = 'Percent of cloud\ncover in scene', limits = c(0,100), breaks = seq(0,100,25)) +
   theme_bw() +
   theme(text = element_text(size = 10),
         strip.background = element_rect(fill = 'white'))
+
 
 ggsave('atmos_figures/pixel_comparison_w_cloud_cover.jpg', 
        height = 4.75, width = 5.75, units = 'in', dpi = 600, bg = 'white')

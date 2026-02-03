@@ -93,8 +93,8 @@ pp_data <- pp_data1 %>%
                                       "Day of Year", "Elevation (m)", 
                                       "Lake area (km²)", "Lake shoreline length (km)")))
 
-#save(pp_data, file = "3_ard_model/pp_data.rda")
-#save(rf_model, file = "3_ard_model/ard_model.rda")
+save(pp_data, file = "3_ard_model/pp_data.rda")
+save(rf_model, file = "3_ard_model/ard_model.rda")
 load("3_ard_model/pp_data.rda")
 probs <- seq(0,1,0.01)
 training_quantiles <- tibble(y = NA_real_,
@@ -160,7 +160,7 @@ get_oob_predictions <- function(rf_obj, newdata, rf_pred){
 #down the line. The randomForest function provides everything we need for 
 #calculating metrics, but if we need to look at individual trees for any reason
 #this oob_matrix will be needed
-oob_matrix <- get_oob_predictions(rf_model, newdata = training) %>%
+oob_matrix <- get_oob_predictions(rf_model, newdata = training, rf_pred) %>%
   data.frame() %>% mutate(TEMPERATURE = training$TEMPERATURE)
 
 all_output <- oob_matrix %>% mutate(oob_pred = rf_model$predicted) %>%

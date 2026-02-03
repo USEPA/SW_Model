@@ -1,4 +1,4 @@
-# Water Temp Figures: RF variable importand and Partial Dependency Plots
+# Water Temp Figures: RF variable import and and Partial Dependency Plots
 # JWH
 library(dplyr)
 library(randomForest)
@@ -9,9 +9,15 @@ library(arrow)
 library(tidyr)
 library(sf)
 library(lubridate)
+library(tidyverse)
+library(ggtext)
 
 
-# RDAs were saved on prior runs of all models, run by jwh 2023-05-19.
+#Notes:
+#ARDt = LakeCloudFree
+#ARDc = SceneCloudFree
+
+# RDAs were saved on prior runs of all models, run by jwh 2026-02-19.
 # Loaded here for partial dep and var imp plots
 
 load("3_ard_model/ard_model.rda")
@@ -30,16 +36,41 @@ load("4_insitu_model/insitu_model.rda")
 load("4_insitu_model/pp_data.rda")
 insitu_rf <- rf_model
 insitu_parital <- pp_data |>
-  mutate(model = "in situ")
+  mutate(model = "In situ")
 rm(list = c("rf_model", "pp_data"))
-all_partial <- bind_rows(ard_partial, ard_nc_partial, insitu_parital)
+all_partial <- bind_rows(ard_partial, ard_nc_partial, insitu_parital) |>
+  mutate(model = case_when(model == "ARDt " ~
+                             "Landsat(LCF)",
+                           model == "ARDc " ~
+                             "Landsat(SCF)",
+                           model == "in situ " ~
+                             "In situ",
+                           TRUE ~ model),
+         variable = case_when(variable == "Avg. temperature (°C)" ~
+                                "Daily air temp. (°C)",
+                              variable == "30-day avg. temperature (°C)" ~
+                                "Rolling 30-day air temp. (°C)",
+                              variable == "Longitude (m)" ~
+                                "Easting (m)",
+                              variable == "Latitude (m)" ~
+                                "Northing (m)",
+                              variable == "Day of Year" ~
+                                "Day of year",
+                              variable == "Lake area (km²)" ~
+                                "Surface area (km²)",
+                              variable == "Lake shoreline length (km)" ~
+                                "Shoreline length (km)",
+                              TRUE ~ variable)) 
+
+
+
 
 lakes <- st_read('data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp')
 
 # Load up data for figures
 in_situ_all <- read_feather("data/all_insitu_2007_2022.feather")
 training1 <- in_situ_all %>% filter(subset == 'Training') |>
-  mutate(model = "in situ")
+  mutate(model = "In situ")
 training2 <- read_feather('data/ard_training.feather') |>
   mutate(model = "Landsat(LCF)")
 training3 <- read_feather('data/ard_training_no_clouds.feather') |>
@@ -55,8 +86,8 @@ training_quantiles <- training |>
   group_by(model) |>
   reframe("Avg. temperature" = quantile(daily_atemp, probs),
          "30-day avg. temperature" = quantile(mean_30day, probs),
-         "Longitude" = quantile(LONG, probs), 
-         "Latitude" = quantile(LAT, probs),
+         "Easting" = quantile(LONG, probs), 
+         "Northing" = quantile(LAT, probs),
          "Date" = quantile(day_of_year, probs), 
          "Elevation" = quantile(ElevWs, probs), 
          "Lake area" = quantile(lake_sa, probs), 
@@ -64,41 +95,45 @@ training_quantiles <- training |>
   ungroup() |>
   pivot_longer(cols = 2:9, names_to = "variable", values_to = "x") |>
   mutate(variable = factor(variable, levels = c("Avg. temperature", "30-day avg. temperature",
-                                                "Longitude", "Latitude",
+                                                "Easting", "Northing",
                                                 'Date', 
                                                 "Elevation", 
                                                 "Lake area", 
                                                 "Lake shoreline length"),
-                           labels = c("Avg. temperature (°C)", "30-day avg. temperature (°C)",
-                                      "Longitude (m)", "Latitude (m)",
-                                      "Day of Year", "Elevation (m)", 
-                                      "Lake area (km²)", "Lake shoreline length (km)"))) |>
+                           labels = c("Daily air temp. (°C)", "Rolling 30-day air temp. (°C)",
+                                      "Easting (m)", "Northing (m)",
+                                      "Day of year", "Elevation (m)", 
+                                      "Surface area (km²)", "Shoreline length (km)"))) |>
   
   mutate(y = NA_real_) |>
   select(y, x, variable, model)
-  
 
 training_long <- training |>
-  st_as_sf(coords = c("LONG", "LAT"), crs = st_crs(lakes)) |>
-  st_transform(crs = 4326) %>% 
-  mutate(long_dd = st_coordinates(.)[,1],
-         lat_dd = st_coordinates(.)[,2]) |>
+  st_as_sf(coords = c("LONG", "LAT"), crs = st_crs(lakes)) %>%
+  mutate(long_alb = st_coordinates(.)[,1],
+         lat_alb = st_coordinates(.)[,2]) |>
   st_drop_geometry() |>
-  select(comid = COMID, date, model, TEMPERATURE:day_of_year, long_dd:lat_dd) |>
-  pivot_longer(TEMPERATURE:lat_dd, names_to = "variable", values_to = "values") |>
+  select(comid = COMID, date, model, TEMPERATURE:day_of_year, long_alb:lat_alb) |>
+  pivot_longer(TEMPERATURE:lat_alb, names_to = "variable", values_to = "values") |>
   mutate(variable = tolower(variable)) %>%
   mutate(variable = factor(variable, levels = c("daily_atemp", "mean_30day",
-                                                "long_dd", "lat_dd",
+                                                "long_alb", "lat_alb",
                                                 'day_of_year', 
                                                 "elevws", 
                                                 "lake_sa", 
                                                 "lake_shoreline","temperature"),
-                           labels = c("a.) Avg. temperature (°C)", "b.) 30-day avg. temperature (°C)",
-                                      "c.) Longitude (Dec. Deg.)", "d.) Latitude (Dec. Degrees)",
-                                      "e.) Day of Year", "f.) Elevation (m)", 
-                                      "g.) Lake area (km²)", "h.) Lake shoreline length (km)",
-                                      "i.) Water Temperature (°C)")))
-  
+                           labels = c("Daily air temp. (°C)", "Rolling 30-day air temp. (°C)",
+                                      "Easting (m)", "Northing (m)",
+                                      "Day of Year", "Elevation (m)", 
+                                      "Surface area (km²)", "Shoreline length (km)",
+                                      "Water temperature (°C)")))
+
+training_summary <- training_long |> 
+  group_by(model, variable) |>
+  summarize(min = min(values),
+            median = median(values),
+            mean = mean(values),
+            max = max(values))  
 
 nhd_predictors <- read_feather("data/nhd_predictors.feather") %>%
   mutate(date = today(), model = "nhd",
@@ -107,44 +142,85 @@ nhd_predictors <- read_feather("data/nhd_predictors.feather") %>%
   select(comid = COMID, date, model, lake_sa:elevation, -long_aea, -lat_aea) %>%
   pivot_longer(lake_sa:elevation, names_to = "variable", values_to = "values") %>%
   mutate(variable = factor(variable, levels = c("daily_atemp", "mean_30day",
-                                                "long_dd", "lat_dd",
+                                                "long_alb", "lat_alb",
                                                 'day_of_year', 
                                                 "elevation", 
                                                 "lake_sa", 
                                                 "lake_shoreline","temperature"),
-                           labels = c("Avg. temp. (°C)", "30-day avg. temp. (°C)",
-                                      "Longitude (m)", "Latitude (m)",
-                                      "Day of Year", "Elevation (m)", 
-                                      "Lake area (km²)", "Lake shoreline length (km)",
-                                      "Water Temp. (°C)"))) %>%
+                           labels = c("Daily air temp. (°C)", "Rolling 30-day air temp. (°C)",
+                                      "Easting (m)", "Northing (m)",
+                                      "Day of year", "Elevation (m)", 
+                                      "Surface area (km²)", "Shoreline length (km)",
+                                      "Water temperature (°C)"))) %>%
   bind_rows(training_long) %>%
   select(-date) %>%
   unique() %>%
-  filter(variable %in% c("Longitude (m)", "Latitude (m)",
-                         "Elevation (m)", "Lake area (km²)", 
-                         "Lake shoreline length (km)")) %>%
+  filter(variable %in% c("Easting (m)", "Northing (m)",
+                         "Elevation (m)", "Surface area (km²)", 
+                         "Shoreline length (km)")) %>%
   mutate(model = factor(model, levels = c("nhd", "ARDc", "ARDt", 
-                                          "in situ","validation"),
-                        labels = c("NHD Waterbodies", "Landsat(LakeCloudFree)", "Landsat(ScenceCloudFree)", "in situ",
-                                   "validation"),
+                                          "In situ","validation"),
+                        labels = c("NHD daterbodies", "Landsat(LCF)", "Landsat(SCF)", "In situ",
+                                   "Validation"),
                         ordered = TRUE))
 # Plotting Functions
 
 partial_plot <- function(partial_data, quant_data){
-  part_plot <- p
-  artial_data %>%
+  
+  partial_data <- mutate(partial_data, 
+                         order = factor(case_when(variable == "Daily air temp. (°C)" ~
+                                             "(a)",
+                                           variable == "Rolling 30-day air temp. (°C)" ~
+                                             "(b)",
+                                           variable == "Day of year" ~
+                                             "(c)",
+                                           variable == "Easting (m)" ~
+                                             "(d)",
+                                           variable == "Northing (m)" ~
+                                             "(e)",
+                                           variable == "Surface area (km²)" ~
+                                             "(f)",
+                                           variable == "Shoreline length (km)" ~
+                                             "(g)",
+                                           variable == "Elevation (m)" ~
+                                             "(h)",
+                                           TRUE ~ NA_character_)),
+                         variable = paste(order, variable),
+                         variable = reorder(variable, as.numeric(order)))
+  quant_data <- mutate(quant_data, 
+                         order = factor(case_when(variable == "Daily air temp. (°C)" ~
+                                                    "(a)",
+                                                  variable == "Rolling 30-day air temp. (°C)" ~
+                                                    "(b)",
+                                                  variable == "Day of year" ~
+                                                    "(c)",
+                                                  variable == "Easting (m)" ~
+                                                    "(d)",
+                                                  variable == "Northing (m)" ~
+                                                    "(e)",
+                                                  variable == "Surface area (km²)" ~
+                                                    "(f)",
+                                                  variable == "Shoreline length (km)" ~
+                                                    "(g)",
+                                                  variable == "Elevation (m)" ~
+                                                    "(h)",
+                                                  TRUE ~ NA_character_)),
+                         variable = paste(order, variable),
+                         variable = reorder(variable, as.numeric(order)))
+  quant_data <- filter(quant_data, model != "validation")
+  part_plot <- partial_data %>%
     ggplot(aes(x = x, y = y, color = model)) +
     geom_line(linewidth = 1)  +
     geom_rug(data = quant_data, sides = "b", aes(color = model), linewidth = 1) +
     facet_wrap(variable ~ ., ncol = 2, 
-               scales = "free", 
-               strip.position = "bottom") +
+               scales = "free") +#, 
+               #strip.position = "bottom") +
     theme_bw() +
     theme(strip.background = element_rect(fill = 'white', colour = 'white'), 
           axis.title.y=element_text(size = 10, vjust = 5),
           title = element_blank(),
           strip.placement = "outside",
-          strip.text = element_text(size = 10, hjust = 0.5),
+          strip.text = element_text(size = 10, hjust = 0),
           plot.margin = unit(1:4, 'line')
     ) +
     labs(y = expression(paste("Temperature (", degree~C, ")")),
@@ -188,19 +264,20 @@ varimp_plot <- function(rfobj, var_names = NULL){
   plot_out
 }
 
-#' Ridge Plots comparing variable distributions across model training data
+#' Box Plots comparing variable distributions across model training data
 #' 
 #' @param train_data long format training data
 compare_distributions <- function(train_data, style = c("1","2")){
+
   style <- match.arg(style)
-  #browser()
+  #
   #Should I do distributions of all data (e.g. multiple temp observations, but static lake obs (e.g. elev, lat, etc.)
   #Or grab unique values for each lake
   #I.E. Data as modeled or just the unique ones.
   train_data_split <- train_data |>
     filter(!(variable == "lake_sa" & values > 250)) |>
     filter(!(variable == "lake_shoreline" & values > 250)) |>
-    filter(!variable %in% c("Longitude", "Latitude")) |>
+    filter(!variable %in% c("Easting", "Northing")) |>
     group_by(comid, model, variable) |>
     #reframe(values = unique(values)) |>
     ungroup() |>
@@ -214,16 +291,19 @@ compare_distributions <- function(train_data, style = c("1","2")){
         labs(x = label) +
         scale_color_manual(name = ' ',values = c('gray75', 'gray55' ,'black', 'darkblue'), 
                            guide = guide_legend(override.aes = list(linetype = c(1,1,1,1),
-                                                                    shape = c(NA,NA,NA,NA))))
+                                                                    shape = c(NA,NA,NA,NA)))) +
+        theme(axis.title.x = element_text(vjust = -2))
     }
   } else if(style == "2"){
     plot_it <- function(x){
       label <- unique(x$variable)
+      #browser()
       gg <- ggplot(x) +
         geom_jitter(aes(y = values, x = model), color = "gray75", alpha = 0.5) +
         geom_boxplot(aes(y = values, x = model), alpha = 0.5) +
         theme_ipsum_rc() +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1),
+              axis.title.y = element_text(vjust = 2)) +
         labs(y = label, x = "") +
         scale_color_manual(name = ' ', 
                            values = c('gray75', 'gray55' ,'black', 'darkblue'), 
@@ -239,7 +319,7 @@ compare_distributions <- function(train_data, style = c("1","2")){
     }
   }
   
-  #browser()
+  #
   #plot_it(train_data_split[[1]]) 
   plots <- purrr::map(train_data_split, plot_it)
 }
@@ -248,14 +328,13 @@ compare_distributions <- function(train_data, style = c("1","2")){
 ###Variable importance figure
 ###Names are not getting pulled in corretly...  Wrong order.  Probably need factor with names from model and these as labels.sad
 variable_names <- data.frame(variable = row.names(insitu_rf$importance), 
-                             labels = c("a.) Latitude (m)", "b.) Longitude (Dec. Deg.)", 
-                                        "c.) Day of Year", "d.) Elevation (Dec. Deg.)", 
-                                        "e.) Avg. temp. (°C)", 
-                                        "f.) 30-day avg. temp. (°C)", 
-                                        "g.) Lake area (km²)", 
-                                        "h.) Lake shoreline length (km)")) |>
-  mutate(variable = factor(variable, labels = labels))
-variable_names <- NULL
+                             labels = c("Northing (m)", "Easting (m)", 
+                                        "Day of year", "Elevation (m)", 
+                                        "Daily air temp. (°C)", 
+                                        "Rolling 30-day air temp. (°C)", 
+                                        "Surface area (km²)", 
+                                        "Shoreline length (km)"))
+#variable_names <- NULL
 varimp_fig_ard <- varimp_plot(ard_rf, variable_names)
 varimp_fig_ard_nc <- varimp_plot(ard_nc_rf, variable_names)
 varimp_fig_insitu <- varimp_plot(insitu_rf, variable_names)
@@ -263,25 +342,37 @@ fig_6_varimp <- ggarrange(varimp_fig_ard,
                         varimp_fig_ard_nc,
                         varimp_fig_insitu,
                         ncol = 1, nrow = 3,
-                        labels = c("Landsat(LakeCloudFree)", "Landsat(SceneCloudFree)", "in situ"))
+                        labels = c("(a)", "(b)", "(c)"))
 
 # Make da figs
-
-
 
 fig_6_varimp
 ggsave(here::here("local_outputs/fig_6_var_imp.jpg"), fig_6_varimp, width = 5.75, 
        height = 10, units = "in", dpi = 600)
+# Updated figure saves for manuscript as of 2026-02-03
+ggsave('manuscript_figures/figure_6.tiff', fig_6_varimp, height = 10, width = 5.75, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
 
+# Got a problem with this one (7/15/2024)
 fig_7_pp <- partial_plot(all_partial, training_quantiles)
-fig_7_pp
+#fig_7_pp
 ggsave('local_outputs/figure_7_partial_plots.jpg', fig_7_pp,  height = 10.5, width = 8, 
        units = 'in', dpi = 600, bg = 'white')
+# Updated figure saves for manuscript as of 2026-02-03
+ggsave('manuscript_figures/figure_7.tiff', fig_7_pp, height = 10.5, width = 8, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
 
 predictor_dist <- compare_distributions(training_long, style = "2")
-combo_dist <- ggarrange(plotlist = predictor_dist, ncol = 3, nrow = 3, common.legend = TRUE, legend = "bottom")
+combo_dist <- ggarrange(plotlist = predictor_dist, ncol = 3, nrow = 3, 
+                        common.legend = TRUE, legend = "bottom", 
+                        labels = c("(a)","(b)","(c)","(d)","(e)","(f)","(g)",
+                                   "(h)","(i)"))
 ggsave('local_outputs/fig4_boxplots.jpg', combo_dist,  height = 10.5, width = 8, 
-       units = 'in', dpi = 600, bg = 'white')
+       units = 'in', dpi = 300, bg = 'white')
+# Updated figure saves for manuscript as of 2026-02-03
+ggsave('manuscript_figures/figure_4.tiff', combo_dist, height = 10.5, width = 8, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
+
 
 nhd_predictor_dist <- compare_distributions(nhd_predictors, style = "2")
 nhd_combo_dist <- ggarrange(plotlist = nhd_predictor_dist, ncol = 2, nrow = 3, common.legend = TRUE, legend = "bottom")
@@ -289,68 +380,148 @@ ggsave('local_outputs/fig10_nhd_boxplots.jpg', nhd_combo_dist,  height = 10.5, w
        units = 'in', dpi = 600, bg = 'white')
 
 
+# Moved Figure 2 code here from 2_ard_vs_insitu/insitu_ard_comparison
+conus_lakes <- read_sf("data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp"); summary(conus_lakes)
+
+dist_to_shore <- read_feather('data/insitu_data_dist_shore.feather'); summary(dist_to_shore)
+
+# ard_points_nla_nwis <- read_csv('data/ard_points_nla_nwis.csv'); summary(ard_points_nla_nwis) # This is the same as ard_insitu_matchup but includes missing values and excludes ard metadata 
+
+ard_insitu_matchup <- read_feather('data/ard_insitu_matchup_metadata.feather'); summary(ard_insitu_matchup)
+
+# Join data ----
+
+ard_insitu_matchup %>% left_join(dist_to_shore) %>%
+  filter(
+    dist_shore_m > 180,
+    !is.na(extracted_temp),
+    depth <= 2
+  ) %>%  mutate(
+    ard_temp = (extracted_temp*0.00341802 + 149 - 273.15),
+    filter_25 = ifelse(cloud_cover < 25 & cloud_shadow < 25, ard_temp, NA),
+    filter_10 = ifelse(cloud_cover < 10 & cloud_shadow < 10, ard_temp, NA),
+    filter_01 = ifelse(cloud_cover < 1 & cloud_shadow < 1, ard_temp, NA)
+  ) %>% 
+  pivot_longer(cols = c(ard_temp, filter_25, filter_10, filter_01),names_to = 'facets', values_to = 'ard_temp') %>%
+  mutate(
+    labels = ifelse(facets == 'ard_temp','a',
+                    ifelse(facets == 'filter_25','b',
+                           ifelse(facets == 'filter_10','c', 'd'))),
+    facets = factor(facets, levels = c('ard_temp', 'filter_25', 'filter_10', 'filter_01'), 
+                    labels = c('All data','< 25% each cloud cover and shadow',
+                               '< 10% each cloud cover and shadow','< 1% each cloud cover and shadow'),
+                    ordered = T))%>%
+  filter(ard_temp >= 0, !is.na(ard_temp)) -> plot_data
+
+plot_data %>% 
+  group_by(facets) %>%
+  mutate(error = ard_temp-insitu_temp,
+         abs_error = abs(error),
+         percent_abs_error = abs(error)/insitu_temp,
+         squared_error = error^2,
+         squares = (insitu_temp - mean(insitu_temp))^2) %>%
+  summarize(n = sum(!is.na(ard_temp)),
+            MAE = mean(abs_error),
+            MAPE = mean(percent_abs_error),
+            bias = mean(error)) %>%
+  # R2 = 1 - sum(squared_error)/sum(squares)) %>%
+  pivot_longer(cols = c(n,MAE,MAPE,bias
+                        # ,R2
+  ),names_to = 'summary_stats', values_to = 'stats') %>%
+  # mutate(summary_stats = ifelse(summary_stats == 'R2', 'R<sup>2</sup>',summary_stats)) %>%
+  distinct() %>%
+  mutate(stats = str_c(summary_stats, ' = ', round(stats, digits = 2))) %>%
+  pivot_wider(names_from = 'summary_stats', values_from = 'stats') %>% 
+  unite(n,MAE,MAPE,bias,
+        # `R<sup>2</sup>`, 
+        sep = '<br>', col = 'stats') %>%
+  mutate(stats = str_c("<span style='font-size:8pt'>",stats,"</span>")) %>% # Apply HTML formatting
+  right_join(plot_data) %>%
+  arrange(cloud_cover) %>%
+  ggplot +
+  geom_point(aes(x=insitu_temp, y= ard_temp, color = cloud_cover, fill = cloud_cover), size = 1.5, shape = 21, alpha = 0.8) +
+  geom_abline(slope = 1, intercept = 0, color = "black", lwd = 0.5) +
+  geom_text(aes(x = 2, y = 41, label = labels, hjust = 0, vjust = 0), size = 5, color = 'black') +
+  geom_richtext(aes(x = 2, y = 40, label = stats, hjust = 0, vjust = 1),
+                label.padding = unit(rep(0,4), "lines"),
+                fill = NA, label.color = NA) +
+  facet_wrap(~facets) +
+  xlab('In situ Temperature (°C)') +
+  ylab('Landsat Pixel Temperature (°C)') +
+  coord_cartesian(xlim = c(0,45), ylim = c(0,45),expand = F,default = FALSE,clip = "on") +
+  scale_color_viridis_c(name = 'Percent of cloud\ncover in scene', limits = c(0,100), breaks = seq(0,100,25)) + 
+  scale_fill_viridis_c(name = 'Percent of cloud\ncover in scene', limits = c(0,100), breaks = seq(0,100,25)) +
+  theme_bw() +
+  theme(text = element_text(size = 10),
+        strip.background = element_rect(fill = 'white')) -> figure_2_compare
+
+
+ggsave('manuscript_figures/figure_2.tiff', figure_2_compare,
+       height = 4.75, width = 5.75, units = 'in', dpi = 600, bg = 'white',
+       compression = "lzw")
 
 
 ################################################################################
 ### Testing
 ### Ignore for now, not including (2023-08-02, jwh)
 ### 
-lakes <- st_read('data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp')
+#lakes <- st_read('data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp')
 
-ard_oob <- read_feather('atmos_outputs/ard_oob_preds.feather') 
-ard_validation <- read_feather('atmos_outputs/ard_validation.feather')
-ard_2022 <- read_feather('atmos_outputs/ard_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
+#ard_oob <- read_feather('atmos_outputs/ard_oob_preds.feather') 
+#ard_validation <- read_feather('atmos_outputs/ard_validation.feather')
+#ard_2022 <- read_feather('atmos_outputs/ard_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
 
-ard_oob_noclouds <- read_feather('atmos_outputs/ard_oob_preds_noclouds.feather') 
-ard_validation_noclouds <- read_feather('atmos_outputs/ard_validation_noclouds.feather')
-ard_2022_noclouds <- read_feather('atmos_outputs/ard_2022_preds_noclouds.feather') %>% mutate(type = as.factor('Temperature Point'))
+#ard_oob_noclouds <- read_feather('atmos_outputs/ard_oob_preds_noclouds.feather') 
+#ard_validation_noclouds <- read_feather('atmos_outputs/ard_validation_noclouds.feather')
+#ard_2022_noclouds <- read_feather('atmos_outputs/ard_2022_preds_noclouds.feather') %>% mutate(type = as.factor('Temperature Point'))
 
-insitu_oob <- read_feather('atmos_outputs/insitu_oob_preds.feather')
-insitu_validation <- read_feather('atmos_outputs/insitu_validation.feather')
-insitu_2022 <- read_feather('atmos_outputs/insitu_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
+#insitu_oob <- read_feather('atmos_outputs/insitu_oob_preds.feather')
+#insitu_validation <- read_feather('atmos_outputs/insitu_validation.feather')
+#insitu_2022 <- read_feather('atmos_outputs/insitu_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
 
-insitu_all <- read_feather('data/all_insitu_2007_2022.feather')
-in_situ_train <- insitu_all %>% filter(subset == 'Training')
-in_situ_valid <- insitu_all %>% filter(subset =='Validation')
-not_conus <- c("VI","HI","AK","MP","PR","GU","AS")
+#insitu_all <- read_feather('data/all_insitu_2007_2022.feather')
+#in_situ_train <- insitu_all %>% filter(subset == 'Training')
+#in_situ_valid <- insitu_all %>% filter(subset =='Validation')
+#not_conus <- c("VI","HI","AK","MP","PR","GU","AS")
 
-ard_error <- ard_validation %>% mutate(from = 'ARDt')
-ard_error_noclouds <- ard_validation_noclouds %>% mutate(from = 'ARDc')
-insitu_error <- insitu_validation %>% mutate(from = 'In situ')
+#ard_error <- ard_validation %>% mutate(from = 'ARDt')
+#ard_error_noclouds <- ard_validation_noclouds %>% mutate(from = 'ARDc')
+#insitu_error <- insitu_validation %>% mutate(from = 'In situ')
 
-all_error <- ard_error %>% rbind(ard_error_noclouds) %>% rbind(insitu_error)
+#all_error <- ard_error %>% rbind(ard_error_noclouds) %>% rbind(insitu_error)
 
-all_error %>%
-  mutate(error_class = case_when(error >= -1 & error <= 1 ~
-                                   "-1 - 1",
-                                 error > 1 & error <= 2 ~
-                                   "1 - 2",
-                                 error > 2 & error <= 3 ~
-                                   "2 - 3",
-                                 error > 3 ~
-                                   "> 3",
-                                 error < -1 & error >= -2 ~
-                                   "-1 - -2",
-                                 error < -2 & error >= -3 ~
-                                   "-2 - -3",
-                                 error < -3 ~
-                                   "< -3",
-                                 TRUE ~ ""))  %>%
-  mutate(error_class = factor(error_class, 
-                              levels = c("> 3", "2 - 3", "1 - 2", "-1 - 1", "-1 - -2", "-2 - -3", "< -3"), 
-                              ordered = TRUE)) %>%
-  mutate(error_class = factor(error_class, levels = c("> 3", "2 - 3", "1 - 2", "-1 - 1", "-1 - -2", "-2 - -3", "< -3"), 
-                              ordered = TRUE)) %>% na.omit()-> error_circles
+#all_error %>%
+#  mutate(error_class = case_when(error >= -1 & error <= 1 ~
+#                                   "-1 - 1",
+#                                 error > 1 & error <= 2 ~
+#                                   "1 - 2",
+#                                 error > 2 & error <= 3 ~
+#                                   "2 - 3",
+#                                 error > 3 ~
+#                                   "> 3",
+#                                 error < -1 & error >= -2 ~
+#                                   "-1 - -2",
+#                                 error < -2 & error >= -3 ~
+#                                   "-2 - -3",
+#                                 error < -3 ~
+#                                   "< -3",
+#                                 TRUE ~ ""))  %>%
+#  mutate(error_class = factor(error_class, 
+#                              levels = c("> 3", "2 - 3", "1 - 2", "-1 - 1", "-1 - -2", "-2 - -3", "< -3"), 
+#                              ordered = TRUE)) %>%
+#  mutate(error_class = factor(error_class, levels = c("> 3", "2 - 3", "1 - 2", "-1 - 1", "-1 - -2", "-2 - -3", "< -3"), 
+#                              ordered = TRUE)) %>% na.omit()-> error_circles#
 
-st_as_sf(error_circles, coords = c("LONG", "LAT"),crs = st_crs(lakes)) -> error_sf
+#st_as_sf(error_circles, coords = c("LONG", "LAT"),crs = st_crs(lakes)) -> error_sf
 
-conus_bound <- st_read("data/cb_2019_us_state_500k/cb_2019_us_state_500k.shp") %>% filter(!STUSPS %in% not_conus) %>%
-  st_transform(st_crs(lakes))
+#conus_bound <- st_read("data/cb_2019_us_state_500k/cb_2019_us_state_500k.shp") %>% filter(!STUSPS %in% not_conus) %>%
+#  st_transform(st_crs(lakes))
 
-error_sf_jitter <- st_jitter(error_sf, factor = 0.006)
-us_hex <- st_make_grid(conus_bound, square = FALSE)
-ggplot() +
-  geom_sf(data = conus_bound,fill = 'white', lwd = .25) +
-  geom_sf(data = us_hex) +
-  geom_sf(data = error_sf_jitter, aes(color = log1p(error)), alpha = 0.5) +
-  scale_colour_gradient2()
+#error_sf_jitter <- st_jitter(error_sf, factor = 0.006)
+#us_hex <- st_make_grid(conus_bound, square = FALSE)
+#ggplot() +
+#  geom_sf(data = conus_bound,fill = 'white', lwd = .25) +
+#  geom_sf(data = us_hex) +
+#  geom_sf(data = error_sf_jitter, aes(color = log1p(error)), alpha = 0.5) +
+#  scale_colour_gradient2()
+
