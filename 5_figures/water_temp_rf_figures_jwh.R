@@ -9,12 +9,15 @@ library(arrow)
 library(tidyr)
 library(sf)
 library(lubridate)
+library(tidyverse)
+library(ggtext)
+
 
 #Notes:
 #ARDt = LakeCloudFree
 #ARDc = SceneCloudFree
 
-# RDAs were saved on prior runs of all models, run by jwh 2023-05-19.
+# RDAs were saved on prior runs of all models, run by jwh 2026-02-19.
 # Loaded here for partial dep and var imp plots
 
 load("3_ard_model/ard_model.rda")
@@ -289,16 +292,18 @@ compare_distributions <- function(train_data, style = c("1","2")){
         scale_color_manual(name = ' ',values = c('gray75', 'gray55' ,'black', 'darkblue'), 
                            guide = guide_legend(override.aes = list(linetype = c(1,1,1,1),
                                                                     shape = c(NA,NA,NA,NA)))) +
-        theme(axis.title.x = element_text(vjust = -1))
+        theme(axis.title.x = element_text(vjust = -2))
     }
   } else if(style == "2"){
     plot_it <- function(x){
       label <- unique(x$variable)
+      #browser()
       gg <- ggplot(x) +
         geom_jitter(aes(y = values, x = model), color = "gray75", alpha = 0.5) +
         geom_boxplot(aes(y = values, x = model), alpha = 0.5) +
         theme_ipsum_rc() +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1),
+              axis.title.y = element_text(vjust = 2)) +
         labs(y = label, x = "") +
         scale_color_manual(name = ' ', 
                            values = c('gray75', 'gray55' ,'black', 'darkblue'), 
@@ -344,12 +349,18 @@ fig_6_varimp <- ggarrange(varimp_fig_ard,
 fig_6_varimp
 ggsave(here::here("local_outputs/fig_6_var_imp.jpg"), fig_6_varimp, width = 5.75, 
        height = 10, units = "in", dpi = 600)
+# Updated figure saves for manuscript as of 2026-02-03
+ggsave('manuscript_figures/figure_6.tiff', fig_6_varimp, height = 10, width = 5.75, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
 
 # Got a problem with this one (7/15/2024)
 fig_7_pp <- partial_plot(all_partial, training_quantiles)
 #fig_7_pp
 ggsave('local_outputs/figure_7_partial_plots.jpg', fig_7_pp,  height = 10.5, width = 8, 
        units = 'in', dpi = 600, bg = 'white')
+# Updated figure saves for manuscript as of 2026-02-03
+ggsave('manuscript_figures/figure_7.tiff', fig_7_pp, height = 10.5, width = 8, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
 
 predictor_dist <- compare_distributions(training_long, style = "2")
 combo_dist <- ggarrange(plotlist = predictor_dist, ncol = 3, nrow = 3, 
@@ -357,7 +368,11 @@ combo_dist <- ggarrange(plotlist = predictor_dist, ncol = 3, nrow = 3,
                         labels = c("(a)","(b)","(c)","(d)","(e)","(f)","(g)",
                                    "(h)","(i)"))
 ggsave('local_outputs/fig4_boxplots.jpg', combo_dist,  height = 10.5, width = 8, 
-       units = 'in', dpi = 600, bg = 'white')
+       units = 'in', dpi = 300, bg = 'white')
+# Updated figure saves for manuscript as of 2026-02-03
+ggsave('manuscript_figures/figure_4.tiff', combo_dist, height = 10.5, width = 8, units = 'in', dpi = 600, bg = 'white', 
+       compression = "lzw")
+
 
 nhd_predictor_dist <- compare_distributions(nhd_predictors, style = "2")
 nhd_combo_dist <- ggarrange(plotlist = nhd_predictor_dist, ncol = 2, nrow = 3, common.legend = TRUE, legend = "bottom")
@@ -365,68 +380,71 @@ ggsave('local_outputs/fig10_nhd_boxplots.jpg', nhd_combo_dist,  height = 10.5, w
        units = 'in', dpi = 600, bg = 'white')
 
 
+# Moved Figure 2 code here from 2_ard_vs_insitu/insitu_ard_comparison
+
 
 
 ################################################################################
 ### Testing
 ### Ignore for now, not including (2023-08-02, jwh)
 ### 
-lakes <- st_read('data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp')
+#lakes <- st_read('data/OLCI_resolvable_lakes_2022_09_08/OLCI_resolvable_lakes_2022_09_08.shp')
 
-ard_oob <- read_feather('atmos_outputs/ard_oob_preds.feather') 
-ard_validation <- read_feather('atmos_outputs/ard_validation.feather')
-ard_2022 <- read_feather('atmos_outputs/ard_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
+#ard_oob <- read_feather('atmos_outputs/ard_oob_preds.feather') 
+#ard_validation <- read_feather('atmos_outputs/ard_validation.feather')
+#ard_2022 <- read_feather('atmos_outputs/ard_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
 
-ard_oob_noclouds <- read_feather('atmos_outputs/ard_oob_preds_noclouds.feather') 
-ard_validation_noclouds <- read_feather('atmos_outputs/ard_validation_noclouds.feather')
-ard_2022_noclouds <- read_feather('atmos_outputs/ard_2022_preds_noclouds.feather') %>% mutate(type = as.factor('Temperature Point'))
+#ard_oob_noclouds <- read_feather('atmos_outputs/ard_oob_preds_noclouds.feather') 
+#ard_validation_noclouds <- read_feather('atmos_outputs/ard_validation_noclouds.feather')
+#ard_2022_noclouds <- read_feather('atmos_outputs/ard_2022_preds_noclouds.feather') %>% mutate(type = as.factor('Temperature Point'))
 
-insitu_oob <- read_feather('atmos_outputs/insitu_oob_preds.feather')
-insitu_validation <- read_feather('atmos_outputs/insitu_validation.feather')
-insitu_2022 <- read_feather('atmos_outputs/insitu_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
+#insitu_oob <- read_feather('atmos_outputs/insitu_oob_preds.feather')
+#insitu_validation <- read_feather('atmos_outputs/insitu_validation.feather')
+#insitu_2022 <- read_feather('atmos_outputs/insitu_2022_preds.feather') %>% mutate(type = as.factor('Temperature Point'))
 
-insitu_all <- read_feather('data/all_insitu_2007_2022.feather')
-in_situ_train <- insitu_all %>% filter(subset == 'Training')
-in_situ_valid <- insitu_all %>% filter(subset =='Validation')
-not_conus <- c("VI","HI","AK","MP","PR","GU","AS")
+#insitu_all <- read_feather('data/all_insitu_2007_2022.feather')
+#in_situ_train <- insitu_all %>% filter(subset == 'Training')
+#in_situ_valid <- insitu_all %>% filter(subset =='Validation')
+#not_conus <- c("VI","HI","AK","MP","PR","GU","AS")
 
-ard_error <- ard_validation %>% mutate(from = 'ARDt')
-ard_error_noclouds <- ard_validation_noclouds %>% mutate(from = 'ARDc')
-insitu_error <- insitu_validation %>% mutate(from = 'In situ')
+#ard_error <- ard_validation %>% mutate(from = 'ARDt')
+#ard_error_noclouds <- ard_validation_noclouds %>% mutate(from = 'ARDc')
+#insitu_error <- insitu_validation %>% mutate(from = 'In situ')
 
-all_error <- ard_error %>% rbind(ard_error_noclouds) %>% rbind(insitu_error)
+#all_error <- ard_error %>% rbind(ard_error_noclouds) %>% rbind(insitu_error)
 
-all_error %>%
-  mutate(error_class = case_when(error >= -1 & error <= 1 ~
-                                   "-1 - 1",
-                                 error > 1 & error <= 2 ~
-                                   "1 - 2",
-                                 error > 2 & error <= 3 ~
-                                   "2 - 3",
-                                 error > 3 ~
-                                   "> 3",
-                                 error < -1 & error >= -2 ~
-                                   "-1 - -2",
-                                 error < -2 & error >= -3 ~
-                                   "-2 - -3",
-                                 error < -3 ~
-                                   "< -3",
-                                 TRUE ~ ""))  %>%
-  mutate(error_class = factor(error_class, 
-                              levels = c("> 3", "2 - 3", "1 - 2", "-1 - 1", "-1 - -2", "-2 - -3", "< -3"), 
-                              ordered = TRUE)) %>%
-  mutate(error_class = factor(error_class, levels = c("> 3", "2 - 3", "1 - 2", "-1 - 1", "-1 - -2", "-2 - -3", "< -3"), 
-                              ordered = TRUE)) %>% na.omit()-> error_circles
+#all_error %>%
+#  mutate(error_class = case_when(error >= -1 & error <= 1 ~
+#                                   "-1 - 1",
+#                                 error > 1 & error <= 2 ~
+#                                   "1 - 2",
+#                                 error > 2 & error <= 3 ~
+#                                   "2 - 3",
+#                                 error > 3 ~
+#                                   "> 3",
+#                                 error < -1 & error >= -2 ~
+#                                   "-1 - -2",
+#                                 error < -2 & error >= -3 ~
+#                                   "-2 - -3",
+#                                 error < -3 ~
+#                                   "< -3",
+#                                 TRUE ~ ""))  %>%
+#  mutate(error_class = factor(error_class, 
+#                              levels = c("> 3", "2 - 3", "1 - 2", "-1 - 1", "-1 - -2", "-2 - -3", "< -3"), 
+#                              ordered = TRUE)) %>%
+#  mutate(error_class = factor(error_class, levels = c("> 3", "2 - 3", "1 - 2", "-1 - 1", "-1 - -2", "-2 - -3", "< -3"), 
+#                              ordered = TRUE)) %>% na.omit()-> error_circles#
 
-st_as_sf(error_circles, coords = c("LONG", "LAT"),crs = st_crs(lakes)) -> error_sf
+#st_as_sf(error_circles, coords = c("LONG", "LAT"),crs = st_crs(lakes)) -> error_sf
 
-conus_bound <- st_read("data/cb_2019_us_state_500k/cb_2019_us_state_500k.shp") %>% filter(!STUSPS %in% not_conus) %>%
-  st_transform(st_crs(lakes))
+#conus_bound <- st_read("data/cb_2019_us_state_500k/cb_2019_us_state_500k.shp") %>% filter(!STUSPS %in% not_conus) %>%
+#  st_transform(st_crs(lakes))
 
-error_sf_jitter <- st_jitter(error_sf, factor = 0.006)
-us_hex <- st_make_grid(conus_bound, square = FALSE)
-ggplot() +
-  geom_sf(data = conus_bound,fill = 'white', lwd = .25) +
-  geom_sf(data = us_hex) +
-  geom_sf(data = error_sf_jitter, aes(color = log1p(error)), alpha = 0.5) +
-  scale_colour_gradient2()
+#error_sf_jitter <- st_jitter(error_sf, factor = 0.006)
+#us_hex <- st_make_grid(conus_bound, square = FALSE)
+#ggplot() +
+#  geom_sf(data = conus_bound,fill = 'white', lwd = .25) +
+#  geom_sf(data = us_hex) +
+#  geom_sf(data = error_sf_jitter, aes(color = log1p(error)), alpha = 0.5) +
+#  scale_colour_gradient2()
+
