@@ -54,7 +54,7 @@ rf_model <- randomForest(formula,
                          ntree = 100, #Change # of trees from 100 to 3 if running major ARD model
                          importance = T,
                          keep.inbag = T,
-                         na.action=na.exclude, do.trace = 3)
+                         na.action=na.exclude, do.trace = 2)
 
 
 
