@@ -302,15 +302,16 @@ compare_distributions <- function(train_data, style = c("1","2")){
         geom_jitter(aes(y = values, x = model), color = "gray75", alpha = 0.5) +
         geom_boxplot(aes(y = values, x = model), alpha = 0.5) +
         theme_ipsum_rc() +
-        theme(axis.text.x = element_text(angle = 45, hjust = 1),
-              axis.title.y = element_text(vjust = 2)) +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+              #axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0))) +
         labs(y = label, x = "") +
         scale_color_manual(name = ' ', 
                            values = c('gray75', 'gray55' ,'black', 'darkblue'), 
                            guide = guide_legend(override.aes = 
                                                   list(linetype = c(1,1,1,1), 
                                                        shape = c(NA,NA,NA,NA))))
-      if(label %in% c("Lake area (km²)", "Lake shoreline length (km)")) {
+      
+      if(label %in% c("Surface area (km²)", "Shoreline length (km)")) {
         gg <- gg +
           scale_y_log10() + 
           labs(y = paste0("Log ", label, x = ""))
@@ -525,3 +526,6 @@ ggsave('manuscript_figures/figure_2.tiff', figure_2_compare,
 #  geom_sf(data = error_sf_jitter, aes(color = log1p(error)), alpha = 0.5) +
 #  scale_colour_gradient2()
 
+ggplot(iris, aes(x = Petal.Width, y = Petal.Length)) +
+  geom_point() +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 30, b = 0, l = 0)))

@@ -40,7 +40,9 @@ if(!file.exists("3_ard_model/ard_no_clouds_model.rda")){
 }  
 
 # in situ
-source("4_insitu_model/water_temp_insitu.R", echo = TRUE)
+if(!file.exists("4_insitu_model/insitu_model.rda")){
+  source("4_insitu_model/water_temp_insitu.R", echo = TRUE)
+}
 
 # Water temp figures
 source("5_figures/water_temp_figures.R", echo = TRUE)
